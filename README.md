@@ -22,6 +22,10 @@ It does four things:
    student affairs, lets you edit both, and sends them from your own mailbox
    over SMTP. Status of each case is tracked from "open" to "registered".
 
+5. **Puts the plan in your Google Calendar.** Either download an `.ics` with
+   weekly recurring events and import it, or let the tool create a dedicated
+   calendar named "Plan zajęć" in your Google account and keep it in sync.
+
 ## What it deliberately does not do
 
 * **No automation of PE (WF) or language (lektorat) token registrations.** The
@@ -37,7 +41,7 @@ It does four things:
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                               # 19 tests
+pytest                               # 25 tests
 
 usos-planner plan tests/fixtures/sample.in            # best plans in the terminal
 usos-planner plan plan.html --prefs prefs.in --json   # from a saved USOSweb page
@@ -56,6 +60,25 @@ usos-planner serve                                    # GUI at http://127.0.0.1:
 5. `usos-planner register plan.in --round <id>` is a dry run.
    Add `--live` and type `YES` to really register. Failures appear under
    "Rejestracje i podania" in the GUI.
+
+### Google Calendar
+
+Set `calendar.term_start` / `term_end` in `config.yaml` (or pass `--start` /
+`--end`; with a USOS login the dates come from `terms/term` automatically) and
+list holidays under `calendar.holidays` so those weeks are skipped.
+
+* **Import file:** `usos-planner export-ics plan.in --prefs prefs.in --out plan.ics`,
+  then in Google Calendar: Settings → Import & export → Import. Works for any
+  calendar app. The GUI has a "Pobierz .ics" button for each plan.
+* **Direct sync:** in [Google Cloud Console](https://console.cloud.google.com/)
+  create a project, enable the *Google Calendar API*, create an OAuth client of
+  type *Desktop app* and save the downloaded JSON as `google_credentials.json`
+  in the project folder (git-ignored). Then
+  `pip install -e ".[google]"` and `usos-planner gcal plan.in --prefs prefs.in`.
+  The first run opens a browser for consent; afterwards a calendar "Plan zajęć"
+  appears under *My calendars*. Re-running replaces only the events the tool
+  created, so your own entries in that calendar survive. The GUI button
+  "Utwórz / odśwież kalendarz" does the same.
 
 ### Input format
 
@@ -82,6 +105,7 @@ usos_planner/
   usos/              OAuth client and registrations wrappers
   registrar.py       executes a plan against a round, records attempts, opens cases
   escalation/        SQLite store, Polish templates, SMTP mailer
+  calendar/          ics export, Google Calendar sync, semester date resolution
   web/               FastAPI GUI
   cli.py
 ```

@@ -39,3 +39,14 @@ def test_case_flow(tmp_path):
     r = c.post(f"/messages/{msg_id}/send", data={"recipient": "a@x.pl", "subject": "s", "body": "b"}, follow_redirects=True)
     assert "missing" in r.text
     assert c.get("/cases").status_code == 200
+
+
+def test_ics_download_and_gcal_without_credentials(tmp_path):
+    c = make_client(tmp_path)
+    c.post("/upload", files={"file": ("sample.in", (FIX / "sample.in").read_bytes())}, data={"prefs_text": ""})
+    r = c.get("/plans/0.ics?start=2025-10-01&end=2026-01-30")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/calendar")
+    assert r.text.count("BEGIN:VEVENT") == 3
+    assert c.get("/plans/0.ics").status_code == 400  # no dates anywhere
+    r = c.post("/plans/0/gcal", data={"start": "2025-10-01", "end": "2026-01-30"}, follow_redirects=True)
+    assert "google_credentials.json" in r.text  # friendly error, no crash

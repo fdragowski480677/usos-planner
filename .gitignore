@@ -15,3 +15,7 @@ data/
 !tests/fixtures/*.html
 *.in
 !tests/fixtures/*.in
+config.yaml
+google_credentials.json
+*.ics
+!tests/fixtures/*.ics

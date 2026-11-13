@@ -44,10 +44,21 @@ class StudentConfig:
 
 
 @dataclass
+class CalendarConfig:
+    name: str = "Plan zajęć"  # the Google calendar that gets created in your account
+    timezone: str = "Europe/Warsaw"
+    term_start: str = ""  # ISO date of the first day of classes, e.g. 2025-10-01
+    term_end: str = ""  # last day of classes
+    holidays: list[str] = field(default_factory=list)  # ISO dates without classes (EXDATE)
+    google_credentials_file: str = "google_credentials.json"  # OAuth "Desktop app" client from Google Cloud
+
+
+@dataclass
 class Config:
     usos: UsosConfig = field(default_factory=UsosConfig)
     mail: MailConfig = field(default_factory=MailConfig)
     student: StudentConfig = field(default_factory=StudentConfig)
+    calendar: CalendarConfig = field(default_factory=CalendarConfig)
     data_dir: Path = DEFAULT_DATA_DIR
 
     @classmethod
@@ -56,7 +67,7 @@ class Config:
         cfg = cls()
         if p.exists():
             raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
-            for section, klass in (("usos", UsosConfig), ("mail", MailConfig), ("student", StudentConfig)):
+            for section, klass in (("usos", UsosConfig), ("mail", MailConfig), ("student", StudentConfig), ("calendar", CalendarConfig)):
                 if section in raw and raw[section]:
                     setattr(cfg, section, klass(**raw[section]))
             if "data_dir" in raw:

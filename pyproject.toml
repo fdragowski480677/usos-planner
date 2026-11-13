@@ -22,6 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
+google = ["google-api-python-client>=2.100", "google-auth-oauthlib>=1.2"]
 
 [project.scripts]
 usos-planner = "usos_planner.cli:main"

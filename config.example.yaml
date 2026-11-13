@@ -29,4 +29,13 @@ student:
   vice_dean_email: ""
   dean_office_email: ""
 
+calendar:
+  name: "Plan zajęć"            # Google calendar created in your account by `usos-planner gcal`
+  timezone: Europe/Warsaw
+  term_start: ""                # first day of classes, e.g. 2025-10-01 (USOS `terms/term` fills it if empty)
+  term_end: ""                  # last day of classes, e.g. 2026-01-30
+  holidays: []                  # e.g. ["2025-11-01", "2025-11-11", "2025-12-23"]
+  # Google Cloud Console -> enable "Google Calendar API" -> OAuth client "Desktop app" -> download JSON:
+  google_credentials_file: google_credentials.json
+
 data_dir: data

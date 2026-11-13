@@ -14,7 +14,22 @@
      Zmiana preferencji bez ponownego wczytywania: <form method="post" action="/replan" style="display:inline"><input type="hidden" name="prefs_text" id="prefs_copy"><button type="submit" onclick="document.getElementById('prefs_copy').value=document.querySelector('textarea[name=prefs_text]').value">Przelicz</button></form></p>
   {% endif %}
   {% for e in state.errors %}<p class="err">{{ e }}</p>{% endfor %}
+  {% if state.notice %}<p class="ok">{{ state.notice }}</p>{% endif %}
 </div>
+{% if plans %}
+<div class="card">
+  <h2>Kalendarz Google</h2>
+  <form class="inline" method="post" action="/plans/0/gcal" id="calform">
+    <label>Pierwszy dzień zajęć<input type="date" name="start" value="{{ cfg.calendar.term_start }}" required></label>
+    <label>Ostatni dzień zajęć<input type="date" name="end" value="{{ cfg.calendar.term_end }}" required></label>
+    <label>Który plan<select name="which" onchange="document.getElementById('calform').action='/plans/'+this.value+'/gcal'">{% for p in plans %}<option value="{{ loop.index0 }}">Plan {{ loop.index }}</option>{% endfor %}</select></label>
+    <button class="primary" type="submit" title="Tworzy w Twoim koncie Google kalendarz „{{ cfg.calendar.name }}” i wpisuje do niego zajęcia">Utwórz / odśwież kalendarz „{{ cfg.calendar.name }}”</button>
+    <button type="button" onclick="var f=document.getElementById('calform');var w=f.which.value;location.href='/plans/'+w+'.ics?start='+f.start.value+'&end='+f.end.value">Pobierz .ics</button>
+  </form>
+  <p class="muted">Przycisk Google wymaga pliku <code>{{ cfg.calendar.google_credentials_file }}</code> (klient OAuth „Desktop app” z Google Cloud Console; przy pierwszym użyciu otworzy się okno zgody).
+     Plik .ics zaimportujesz ręcznie: Google Calendar → Ustawienia → Import i eksport. Święta z <code>calendar.holidays</code> są pomijane.</p>
+</div>
+{% endif %}
 
 {% for plan in plans %}
 <div class="card">

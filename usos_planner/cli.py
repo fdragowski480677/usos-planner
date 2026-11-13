@@ -110,14 +110,7 @@ def cmd_register(args, cfg):
     from .registrar import register_plan
 
     cat = load_catalog(args.source)
-    meta_path = Path(args.source).with_suffix(".meta.json")
-    if meta_path.exists():  # restore USOS ids written by `fetch`
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        by_name = {v["name"]: (k, v) for k, v in meta.items()}
-        for c in cat.courses:
-            if c.name in by_name:
-                c.usos_course_id, info = by_name[c.name]
-                c.term_id, c.coordinators = info["term_id"], info.get("coordinators", [])
+    _restore_meta(cat, Path(args.source))  # USOS ids written by `fetch`
     prefs = read_prefs(Path(args.prefs).read_text(encoding="utf-8"), cat) if args.prefs else Preferences()
     report = solve(cat, prefs, max_plans=1)
     if not report.plans:
@@ -136,6 +129,75 @@ def cmd_register(args, cfg):
     for a in register_plan(reg, cat, plan, args.round, store=store, live=args.live):
         flag = "OK " if a.ok else "ERR"
         print(f"{flag} {a.course} {a.class_type} gr.{a.group_number}: {a.message}")
+    return 0
+
+
+def _plan_from_args(args, cfg):
+    cat = load_catalog(args.source)
+    _restore_meta(cat, Path(args.source))
+    prefs = read_prefs(Path(args.prefs).read_text(encoding="utf-8"), cat) if args.prefs else Preferences()
+    report = solve(cat, prefs, max_plans=max(1, args.plan))
+    if len(report.plans) < args.plan:
+        print(f"only {len(report.plans)} plan(s) available", file=sys.stderr)
+        sys.exit(2)
+    return cat, report.plans[args.plan - 1]
+
+
+def _restore_meta(cat, source: Path) -> None:
+    meta_path = source.with_suffix(".meta.json")
+    if not meta_path.exists():
+        return
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    by_name = {v["name"]: (k, v) for k, v in meta.items()}
+    for c in cat.courses:
+        if c.name in by_name:
+            c.usos_course_id, info = by_name[c.name]
+            c.term_id, c.coordinators = info["term_id"], info.get("coordinators", [])
+
+
+def _term_dates(args, cfg, cat):
+    from .calendar.dates import TermDatesError, resolve_term_dates
+
+    client = None
+    try:
+        client = _client(cfg) if cfg.usos.consumer_key else None
+    except Exception:
+        client = None
+    try:
+        return resolve_term_dates(cfg.calendar, cat, args.start, args.end, client)
+    except TermDatesError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(2)
+
+
+def cmd_export_ics(args, cfg):
+    from .calendar.dates import holidays
+    from .calendar.ics import plan_to_ics
+
+    cat, plan = _plan_from_args(args, cfg)
+    start, end = _term_dates(args, cfg, cat)
+    text = plan_to_ics(cat, plan, start, end, name=cfg.calendar.name, tz=cfg.calendar.timezone, exdates=holidays(cfg.calendar))
+    Path(args.out).write_text(text, encoding="utf-8")
+    print(f"wrote {args.out}: {text.count('BEGIN:VEVENT')} weekly events from {start} to {end}")
+    print("Google Calendar: Settings -> Import & export -> Import, pick this file and a target calendar.")
+    return 0
+
+
+def cmd_gcal(args, cfg):
+    from .calendar.dates import holidays
+    from .calendar.google_sync import GoogleCalendarError, get_service, sync_plan
+
+    cat, plan = _plan_from_args(args, cfg)
+    start, end = _term_dates(args, cfg, cat)
+    try:
+        service = get_service(Path(cfg.calendar.google_credentials_file), cfg.data_dir / "google_token.json")
+        result = sync_plan(service, cat, plan, start, end, calendar_name=args.calendar or cfg.calendar.name,
+                           tz=cfg.calendar.timezone, exdates=holidays(cfg.calendar))
+    except GoogleCalendarError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(f"calendar '{result['calendar_name']}' ({result['calendar_id']}): removed {result['removed']} old events, inserted {result['inserted']}")
+    print("It is now in your Google account under 'My calendars'; share or subscribe from its settings page.")
     return 0
 
 
@@ -183,6 +245,20 @@ def main(argv=None) -> int:
     p.add_argument("--prefs")
     p.add_argument("--live", action="store_true")
     p.set_defaults(fn=cmd_register)
+
+    for name, fn, help_text in (("export-ics", cmd_export_ics, "write the plan as an .ics file (import into Google Calendar)"),
+                                ("gcal", cmd_gcal, "create/refresh a dedicated Google Calendar with the plan")):
+        p = sub.add_parser(name, help=help_text)
+        p.add_argument("source")
+        p.add_argument("--prefs")
+        p.add_argument("--plan", type=int, default=1, help="which of the best plans (1 = best)")
+        p.add_argument("--start", help="first day of classes, ISO date")
+        p.add_argument("--end", help="last day of classes, ISO date")
+        if name == "export-ics":
+            p.add_argument("--out", default="plan.ics")
+        else:
+            p.add_argument("--calendar", help="calendar name (default: config calendar.name)")
+        p.set_defaults(fn=fn)
 
     p = sub.add_parser("serve", help="start the web GUI")
     p.add_argument("--host", default="127.0.0.1")

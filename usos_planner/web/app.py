@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from ..config import Config
@@ -27,7 +27,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     cfg = cfg or Config.load()
     app = FastAPI(title="usos-planner")
     store = CaseStore(cfg.data_dir / "cases.db")
-    state: dict = {"catalog": None, "plans": [], "source": None, "prefs": Preferences(), "errors": []}
+    state: dict = {"catalog": None, "plans": [], "source": None, "prefs": Preferences(), "errors": [], "notice": ""}
     app.state.cfg = cfg
     app.state.store = store
     app.state.planner = state
@@ -82,6 +82,49 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if cat is None or not 0 <= index < len(plans):
             return {"error": "no such plan"}
         return plans[index].to_dict(cat)
+
+    # ----- calendar -------------------------------------------------------
+    def _dates(start: str, end: str):
+        from ..calendar.dates import resolve_term_dates
+
+        return resolve_term_dates(cfg.calendar, state["catalog"], start, end)
+
+    @app.get("/plans/{index}.ics")
+    def plan_ics(index: int, start: str = "", end: str = ""):
+        from ..calendar.dates import TermDatesError, holidays
+        from ..calendar.ics import plan_to_ics
+
+        cat, plans = state["catalog"], state["plans"]
+        if cat is None or not 0 <= index < len(plans):
+            return Response("no such plan", status_code=404)
+        try:
+            s, e = _dates(start, end)
+        except TermDatesError as err:
+            return Response(str(err), status_code=400)
+        text = plan_to_ics(cat, plans[index], s, e, name=cfg.calendar.name, tz=cfg.calendar.timezone, exdates=holidays(cfg.calendar))
+        return Response(text, media_type="text/calendar; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="plan-{index + 1}.ics"'})
+
+    @app.post("/plans/{index}/gcal")
+    def plan_gcal(index: int, start: str = Form(""), end: str = Form("")):
+        from ..calendar.dates import TermDatesError, holidays
+        from ..calendar.google_sync import GoogleCalendarError, get_service, sync_plan
+
+        cat, plans = state["catalog"], state["plans"]
+        if cat is None or not 0 <= index < len(plans):
+            return RedirectResponse("/", status_code=303)
+        try:
+            s, e = _dates(start, end)
+            service = get_service(Path(cfg.calendar.google_credentials_file), cfg.data_dir / "google_token.json")
+            result = sync_plan(service, cat, plans[index], s, e, calendar_name=cfg.calendar.name,
+                               tz=cfg.calendar.timezone, exdates=holidays(cfg.calendar))
+        except (TermDatesError, GoogleCalendarError) as err:
+            state["errors"] = [str(err)]
+            return RedirectResponse("/", status_code=303)
+        state["errors"] = []
+        state["notice"] = (f"Kalendarz Google „{result['calendar_name']}”: usunięto {result['removed']} starych, "
+                           f"dodano {result['inserted']} cotygodniowych wydarzeń.")
+        return RedirectResponse("/", status_code=303)
 
     # ----- cases ----------------------------------------------------------
     @app.get("/cases", response_class=HTMLResponse)
