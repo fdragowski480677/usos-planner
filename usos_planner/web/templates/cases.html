@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Sprawy do załatwienia</h1>
+  <p class="muted">Każda nieudana rejestracja z trybu <code>register --live</code> tworzy tu sprawę. Można też dodać ją ręcznie.</p>
+  <table>
+    <tr><th>#</th><th>Przedmiot</th><th>Zajęcia</th><th>Powód</th><th>Status</th><th>Aktualizacja</th></tr>
+    {% for c in cases %}
+    <tr><td><a href="/cases/{{ c.id }}">{{ c.id }}</a></td><td>{{ c.course }} <span class="muted">{{ c.usos_course_id }} {{ c.term_id }}</span></td>
+        <td>{{ c.class_type }} gr. {{ c.group_number }}</td><td>{{ c.reason }}</td><td><span class="pill">{{ c.status }}</span></td><td class="muted">{{ c.updated }}</td></tr>
+    {% else %}<tr><td colspan="6" class="muted">Brak otwartych spraw.</td></tr>{% endfor %}
+  </table>
+  <p><a href="/cases?all=1">pokaż także zamknięte</a></p>
+</div>
+<div class="card">
+  <h2>Dodaj sprawę ręcznie</h2>
+  <form class="inline" method="post" action="/cases/new">
+    <label>Przedmiot<input name="course" required></label>
+    <label>Kod USOS<input name="usos_course_id" placeholder="1000-211bAM1"></label>
+    <label>Cykl<input name="term_id" placeholder="2025Z"></label>
+    <label>Typ<select name="class_type">{% for t in ['CW','LAB','WYK','CWW','SEM','KON','WAR','LEK','WF','OTHER'] %}<option>{{ t }}</option>{% endfor %}</select></label>
+    <label>Grupa<input name="group_number" type="number" value="1" style="width:70px"></label>
+    <label>Powód<select name="reason"><option value="limit">brak miejsc</option><option value="not_entitled">brak uprawnień</option><option value="other">inny</option></select></label>
+    <label>Koordynator<input name="coordinator_name" placeholder="dr Jan Kowalski"></label>
+    <label>E-mail koordynatora<input name="coordinator_email" type="email"></label>
+    <button class="primary" type="submit">Utwórz</button>
+  </form>
+</div>
+<div class="card">
+  <h2>Ostatnie próby rejestracji</h2>
+  <table><tr><th>Kiedy</th><th>Przedmiot</th><th>Tryb</th><th>Wynik</th><th>Odpowiedź USOS</th></tr>
+  {% for a in attempts %}<tr><td class="muted">{{ a.at }}</td><td>{{ a.course }} {{ a.class_type }} gr. {{ a.group_number }}</td>
+    <td>{{ 'LIVE' if a.live else 'dry-run' }}</td><td class="{{ 'ok' if a.ok else 'err' }}">{{ 'OK' if a.ok else a.reason }}</td><td>{{ a.message }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">Jeszcze nic.</td></tr>{% endfor %}</table>
+</div>
+{% endblock %}

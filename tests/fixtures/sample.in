@@ -1,0 +1,18 @@
+# two courses, two groups each; A1 and B1 collide on Monday morning
+PRZEDMIOT Analiza III
+  ZAJECIA WYK
+    GRUPA 1
+      Pn 10:15-12:00
+  ZAJECIA CW
+    GRUPA 1
+      Pn 08:00-10:00
+    GRUPA 2
+      Wt 12:00-14:00
+PRZEDMIOT Bazy danych
+  ZAJECIA LAB
+    GRUPA 1
+      Pn 08:00-10:00
+    GRUPA 2
+      Sr 12:00-14:00
+    GRUPA 3
+      Pn 10:15-12:00   # collides with the lecture -> soft conflict

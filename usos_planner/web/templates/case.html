@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Sprawa #{{ case.id }} · {{ case.course }} <span class="muted">{{ case.usos_course_id }} {{ case.term_id }}</span></h1>
+  <p>{{ case.class_type }} gr. {{ case.group_number }} · powód: <b>{{ case.reason }}</b> · odpowiedź USOS: <i>{{ case.server_message }}</i></p>
+  <p>Koordynatorzy: {% for k in case.coordinators %}<span class="pill">{{ k.name }} {% if k.email %}&lt;{{ k.email }}&gt;{% endif %}</span> {% else %}<span class="muted">nieznani</span>{% endfor %}</p>
+  <form class="inline" method="post" action="/cases/{{ case.id }}/status">
+    <label>Status<select name="status">{% for s in statuses %}<option {{ 'selected' if s == case.status else '' }}>{{ s }}</option>{% endfor %}</select></label>
+    <label>Notatki<input name="notes" value="{{ case.notes }}" style="width:320px"></label>
+    <button type="submit">Zapisz</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Krok 1 · e-mail do koordynatora przedmiotu</h2>
+  <form class="inline" method="post" action="/cases/{{ case.id }}/draft">
+    <input type="hidden" name="kind" value="coordinator">
+    <label>Adresat<input name="recipient" type="email" value="{{ case.coordinators[0].email if case.coordinators else '' }}"></label>
+    <label>Imię i nazwisko z tytułem<input name="coordinator_name" value="{{ case.coordinators[0].name if case.coordinators else '' }}"></label>
+    <label>Twoje uzasadnienie (opcjonalnie)<input name="justification" style="width:380px" placeholder="np. jedyna grupa niekolidująca z zajęciami obowiązkowymi"></label>
+    <button class="primary" type="submit">Przygotuj e-mail</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Krok 2 · podanie do prodziekana ds. studenckich</h2>
+  <form class="inline" method="post" action="/cases/{{ case.id }}/draft">
+    <input type="hidden" name="kind" value="dean">
+    <label>Adresat<input name="recipient" type="email" value="{{ student.vice_dean_email or student.dean_office_email }}"></label>
+    <label>Koordynator (do treści)<input name="coordinator_name" value="{{ case.coordinators[0].name if case.coordinators else '' }}"></label>
+    <label>Zgoda koordynatora<select name="coordinator_approved"><option value="1">uzyskana (załączam)</option><option value="0">jeszcze nie</option></select></label>
+    <label>Uzasadnienie (opcjonalnie)<input name="justification" style="width:380px"></label>
+    <button class="primary" type="submit">Przygotuj podanie</button>
+  </form>
+  {% if not student.full_name %}<p class="err">Uzupełnij sekcję <code>student</code> w config.yaml (imię i nazwisko, nr albumu, kierunek, wydział), inaczej szablony będą puste.</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>Wiadomości w tej sprawie</h2>
+  <table><tr><th>#</th><th>Rodzaj</th><th>Adresat</th><th>Temat</th><th>Wysłana</th></tr>
+  {% for m in messages %}<tr><td><a href="/messages/{{ m.id }}">{{ m.id }}</a></td><td>{{ m.kind }}</td><td>{{ m.recipient }}</td><td>{{ m.subject }}</td>
+   <td class="{{ 'ok' if m.sent else 'muted' }}">{{ m.sent_at if m.sent else 'szkic' }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">Brak.</td></tr>{% endfor %}</table>
+</div>
+{% endblock %}

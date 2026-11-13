@@ -1,0 +1,32 @@
+# Copy to config.yaml (git-ignored) and fill in.  Nothing here is optional for
+# the feature that uses it; the planner alone needs none of it.
+
+usos:
+  # Your university's USOS API installation (list: https://apps.usos.edu.pl/developers/api/definitions/installations/)
+  base_url: https://usosapps.uw.edu.pl/
+  # Register an application at <base_url>developers/ to get these:
+  consumer_key: ""
+  consumer_secret: ""
+  scopes: [studies, offline_access, email]
+
+mail:
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  username: ""          # your university mailbox login
+  password: ""          # an app password, never your real password
+  from_address: ""      # e.g. j.kowalski@student.uw.edu.pl
+  bcc_self: true
+
+student:
+  full_name: ""
+  index_number: ""
+  programme: ""         # e.g. Informatyka, studia I stopnia
+  year: ""              # e.g. II rok
+  faculty: ""           # e.g. Wydział Matematyki, Informatyki i Mechaniki UW
+  email: ""
+  phone: ""
+  vice_dean_name: ""    # e.g. dr hab. Jan Kowalski, prof. UW
+  vice_dean_email: ""
+  dean_office_email: ""
+
+data_dir: data

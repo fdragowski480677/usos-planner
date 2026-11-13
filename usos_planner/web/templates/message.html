@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>{{ 'E-mail do koordynatora' if msg.kind == 'coordinator' else 'Podanie do prodziekana' }} · sprawa <a href="/cases/{{ case.id }}">#{{ case.id }}</a></h1>
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+  {% if msg.sent %}<p class="ok">Wysłano {{ msg.sent_at }}.</p>{% endif %}
+  <form method="post" action="/messages/{{ msg.id }}/send">
+    <div class="inline" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <label>Do<input name="recipient" type="email" value="{{ msg.recipient }}" required style="width:300px"></label>
+      <label>DW (po przecinku)<input name="cc" style="width:300px" placeholder="dziekanat@..."></label>
+    </div>
+    <label>Temat<input name="subject" value="{{ msg.subject }}" style="width:100%"></label>
+    <label style="margin-top:8px">Treść (edytuj przed wysłaniem; usuń niepotrzebne formy mogłem/mogłam)<textarea name="body">{{ msg.body }}</textarea></label>
+    <p><button class="primary" type="submit" onclick="return confirm('Wysłać tę wiadomość przez SMTP z konta {{ cfg.mail.from_address or cfg.mail.username }}?')">Wyślij</button>
+       <span class="muted">Kopia trafi do data/sent/ jako .eml{% if cfg.mail.bcc_self %} i na Twoją skrzynkę{% endif %}.</span></p>
+  </form>
+</div>
+{% endblock %}

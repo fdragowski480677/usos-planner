@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Plan zajęć</h1>
+  <form class="inline" method="post" action="/upload" enctype="multipart/form-data">
+    <label>Plik .in albo zapisany plan z USOSweb (.html)<input type="file" name="file" required></label>
+    <label>Preferencje (format prefs.in)<textarea name="prefs_text" style="min-height:90px;width:360px" placeholder="PtCzyWolne true&#10;PnGodziny 10:00-18:00&#10;Przypnij AnalizaIII CW 7">{% if state.source %}{% for d in range(5) %}{{ DAY_NAMES[d] }}Godziny {{ fmt_time(state.prefs.hours[d][0]) }}-{{ fmt_time(state.prefs.hours[d][1]) }}
+{% endfor %}{% for d in range(5) %}{{ DAY_NAMES[d] }}CzyWolne {{ 'true' if d in state.prefs.free_days else 'false' }}
+{% endfor %}{% endif %}</textarea></label>
+    <button class="primary" type="submit">Wczytaj i zaplanuj</button>
+  </form>
+  {% if state.source %}
+  <p class="muted">Źródło: {{ state.source }} · {{ cat.courses|length }} przedmiotów, {{ cat.units|length }} rodzajów zajęć, {{ cat.groups|length }} grup.
+     Zmiana preferencji bez ponownego wczytywania: <form method="post" action="/replan" style="display:inline"><input type="hidden" name="prefs_text" id="prefs_copy"><button type="submit" onclick="document.getElementById('prefs_copy').value=document.querySelector('textarea[name=prefs_text]').value">Przelicz</button></form></p>
+  {% endif %}
+  {% for e in state.errors %}<p class="err">{{ e }}</p>{% endfor %}
+</div>
+
+{% for plan in plans %}
+<div class="card">
+  <h2>Plan {{ loop.index }} · kara {{ plan.penalty }} ·
+    <span class="{{ 'err' if plan.hard_conflicts else 'ok' }}">{{ plan.hard_conflicts }} twardych konfliktów</span>,
+    <span class="soft">{{ plan.soft_conflicts }} miękkich</span>
+    · <a href="/plans/{{ loop.index0 }}.json">JSON</a></h2>
+  {% set slots = plan.slots(cat) %}
+  <div class="grid">
+    <div></div>{% for d in range(5) %}<div class="day">{{ DAY_NAMES[d] }}</div>{% endfor %}
+    <div class="hours">{% for h in range(8, 21) %}<span style="top:{{ (h-8)*60 }}px">{{ '%02d:00' % h }}</span>{% endfor %}</div>
+    {% for d in range(5) %}
+    <div class="col">
+      {% for gid, s in slots if s.day == d %}
+      {% set top = (s.start - 8*60) %}{% set height = s.end - s.start %}
+      {% set clash = namespace(v=false) %}
+      {% for gid2, s2 in slots if gid2 != gid and s2.day == d and s2.start < s.end and s.start < s2.end %}{% set clash.v = true %}{% endfor %}
+      <div class="block {{ 'conflict' if clash.v else '' }}" style="top:{{ top }}px;height:{{ height - 2 }}px" title="{{ cat.describe_group(gid) }} {{ s }}">
+        <b>{{ cat.course_of_group(gid).name }}</b><br>{{ cat.unit_of_group(gid).class_type.value }} gr. {{ cat.groups[gid].number }} · {{ fmt_time(s.start) }}–{{ fmt_time(s.end) }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
