@@ -41,25 +41,40 @@ It does four things:
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                               # 25 tests
+pytest                               # 27 tests
 
 usos-planner plan tests/fixtures/sample.in            # best plans in the terminal
 usos-planner plan plan.html --prefs prefs.in --json   # from a saved USOSweb page
 usos-planner serve                                    # GUI at http://127.0.0.1:8000
 ```
 
-### USOS API
+### Logging in (GUI)
 
-1. Copy `config.example.yaml` to `config.yaml`.
-2. Register an application at `https://<your-usos-api>/developers/` and paste the
-   consumer key and secret. The default `base_url` is the University of Warsaw
-   installation; change it for your university.
-3. `usos-planner login` opens the PIN flow. The token is stored in `data/`.
-4. `usos-planner rounds` lists your rounds; `usos-planner fetch --round <id>`
-   writes `plan.in` plus `plan.meta.json` (USOS ids and coordinators).
-5. `usos-planner register plan.in --round <id>` is a dry run.
-   Add `--live` and type `YES` to really register. Failures appear under
-   "Rejestracje i podania" in the GUI.
+Start `usos-planner serve`, open **Ustawienia** and do each of these once:
+
+* **USOS:** register an application at `https://<your-usos-api>/developers/`
+  (a student account is enough) and paste the consumer key and secret. From then
+  on the **Zaloguj przez USOS** button in the header redirects you to your
+  university's USOS login and straight back.
+* **Google:** in Google Cloud Console enable the *Google Calendar API*, create
+  an OAuth client of type *Desktop app*, download the JSON and paste its content
+  into the Google box. From then on **Zaloguj przez Google** is a normal Google
+  sign-in; the calendar sync button needs nothing else.
+
+Both keys identify the *application*, not you; Google and USOS require them for
+any third-party login. Everything is stored locally in `config.yaml` and
+`data/` (git-ignored).
+
+After logging in, **Pobierz z USOS** lists your registration rounds; one click
+pulls all courses of a round with their groups and times and computes the plans.
+
+### USOS API from the CLI
+
+The same works without the GUI: `usos-planner login` (PIN flow),
+`usos-planner rounds`, `usos-planner fetch --round <id>` (writes `plan.in` and
+`plan.meta.json`), `usos-planner register plan.in --round <id>` (dry run;
+add `--live` and type `YES` to really register). Failures from live runs appear
+under "Rejestracje i podania".
 
 ### Google Calendar
 
@@ -70,15 +85,12 @@ list holidays under `calendar.holidays` so those weeks are skipped.
 * **Import file:** `usos-planner export-ics plan.in --prefs prefs.in --out plan.ics`,
   then in Google Calendar: Settings → Import & export → Import. Works for any
   calendar app. The GUI has a "Pobierz .ics" button for each plan.
-* **Direct sync:** in [Google Cloud Console](https://console.cloud.google.com/)
-  create a project, enable the *Google Calendar API*, create an OAuth client of
-  type *Desktop app* and save the downloaded JSON as `google_credentials.json`
-  in the project folder (git-ignored). Then
-  `pip install -e ".[google]"` and `usos-planner gcal plan.in --prefs prefs.in`.
-  The first run opens a browser for consent; afterwards a calendar "Plan zajęć"
-  appears under *My calendars*. Re-running replaces only the events the tool
-  created, so your own entries in that calendar survive. The GUI button
-  "Utwórz / odśwież kalendarz" does the same.
+* **Direct sync:** log in with Google in the GUI (see above) and press
+  "Utwórz / odśwież kalendarz" next to a plan. A calendar "Plan zajęć" appears
+  under *My calendars* in your Google account. Re-running replaces only the
+  events the tool created, so your own entries in that calendar survive.
+  CLI equivalent: `usos-planner gcal plan.in --prefs prefs.in` (opens a browser
+  for consent on first use).
 
 ### Input format
 

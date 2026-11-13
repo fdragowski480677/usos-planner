@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import yaml
@@ -73,4 +73,22 @@ class Config:
             if "data_dir" in raw:
                 cfg.data_dir = Path(raw["data_dir"])
         cfg.data_dir.mkdir(parents=True, exist_ok=True)
+        cfg.path = p
         return cfg
+
+    def save(self, path: str | Path | None = None) -> Path:
+        p = Path(path or getattr(self, "path", None) or os.environ.get("USOS_PLANNER_CONFIG", "config.yaml"))
+        data = {
+            "usos": asdict(self.usos),
+            "mail": asdict(self.mail),
+            "student": asdict(self.student),
+            "calendar": asdict(self.calendar),
+            "data_dir": str(self.data_dir),
+        }
+        p.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        try:
+            p.chmod(0o600)  # holds secrets
+        except OSError:
+            pass
+        self.path = p
+        return p

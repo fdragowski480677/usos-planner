@@ -31,8 +31,13 @@ form.inline{display:flex;gap:8px;flex-wrap:wrap;align-items:end}label{display:fl
 <body>
 <header>
   <a href="/" class="{{ 'active' if request.url.path == '/' else '' }}">Plany</a>
+  <a href="/usos" class="{{ 'active' if request.url.path.startswith('/usos') else '' }}">Pobierz z USOS</a>
   <a href="/cases" class="{{ 'active' if request.url.path.startswith('/cases') or request.url.path.startswith('/messages') else '' }}">Rejestracje i podania</a>
-  <span class="muted" style="margin-left:auto">{{ cfg.usos.base_url }}</span>
+  <a href="/settings" class="{{ 'active' if request.url.path.startswith('/settings') else '' }}">Ustawienia</a>
+  <span style="margin-left:auto;display:flex;gap:10px;align-items:center;font-size:13px">
+    {% if auth.usos_user %}<span class="pill">USOS: {{ auth.usos_user }} <a href="/auth/usos/logout">wyloguj</a></span>{% else %}<a href="/auth/usos"><button type="button">Zaloguj przez USOS</button></a>{% endif %}
+    {% if auth.google_user %}<span class="pill">Google: {{ auth.google_user }} <a href="/auth/google/logout">wyloguj</a></span>{% else %}<a href="/auth/google"><button type="button">Zaloguj przez Google</button></a>{% endif %}
+  </span>
 </header>
 <main>{% block content %}{% endblock %}</main>
 </body>

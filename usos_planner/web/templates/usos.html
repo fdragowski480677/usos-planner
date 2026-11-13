@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Pobierz plan z USOS</h1>
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+  {% if not usos_user %}
+  <p>Najpierw <a href="/auth/usos">zaloguj się przez USOS</a>{% if not cfg.usos.consumer_key %} (wcześniej wpisz klucz aplikacji w <a href="/settings">Ustawieniach</a>){% endif %}.</p>
+  {% else %}
+  <p>Zalogowano jako <b>{{ usos_user }}</b>. Poniżej tury rejestracji, które Cię dotyczą w najbliższym miesiącu. Wybranie tury pobiera wszystkie jej przedmioty z grupami i terminami, po czym program od razu liczy plany.</p>
+  <table><tr><th>Tura</th><th>Rejestracja</th><th>Od</th><th>Do</th><th></th></tr>
+  {% for r in rounds %}
+  <tr><td>{{ r.id }}</td><td>{{ r.registration.description.pl if r.registration and r.registration.description else r.registration_id }}</td>
+      <td class="muted">{{ r.start_date }}</td><td class="muted">{{ r.end_date }}</td>
+      <td><form method="post" action="/usos/fetch"><input type="hidden" name="round_id" value="{{ r.id }}"><button class="primary" type="submit">Pobierz i zaplanuj</button></form></td></tr>
+  {% else %}<tr><td colspan="5" class="muted">Brak tur w najbliższym miesiącu (albo API nie zwróciło żadnych).</td></tr>{% endfor %}
+  </table>
+  <h2 style="margin-top:16px">Albo konkretne przedmioty</h2>
+  <form class="inline" method="post" action="/usos/fetch">
+    <label>Kody przedmiotów (po przecinku)<input name="courses" style="width:420px" placeholder="1000-211bAM1, 1000-212bBD"></label>
+    <label>Cykl<input name="term_id" placeholder="2025Z" style="width:90px"></label>
+    <button class="primary" type="submit">Pobierz i zaplanuj</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

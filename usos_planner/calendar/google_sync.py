@@ -54,6 +54,49 @@ def get_service(credentials_file: Path, token_file: Path):
     return build("calendar", "v3", credentials=creds, cache_discovery=False)
 
 
+def load_credentials(token_file: Path):
+    """Stored credentials, refreshed if needed; None when not logged in."""
+    try:
+        from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+    except ImportError as e:  # pragma: no cover
+        raise GoogleCalendarError("install the google extra: pip install -e '.[google]'") from e
+    if not token_file.exists():
+        return None
+    creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        token_file.write_text(creds.to_json())
+    return creds if creds.valid else None
+
+
+def web_flow(credentials_file: Path, redirect_uri: str):
+    """OAuth flow for the browser GUI (redirect instead of local server)."""
+    try:
+        from google_auth_oauthlib.flow import Flow
+    except ImportError as e:  # pragma: no cover
+        raise GoogleCalendarError("install the google extra: pip install -e '.[google]'") from e
+    if not credentials_file.exists():
+        raise GoogleCalendarError("Google OAuth client is not configured yet (Settings -> Google)")
+    flow = Flow.from_client_secrets_file(str(credentials_file), scopes=SCOPES, redirect_uri=redirect_uri)
+    return flow
+
+
+def service_from_credentials(creds):
+    from googleapiclient.discovery import build
+
+    return build("calendar", "v3", credentials=creds, cache_discovery=False)
+
+
+def account_email(creds) -> str:
+    """Best effort: who is logged in (uses the calendar's primary entry, no extra scope)."""
+    try:
+        primary = service_from_credentials(creds).calendars().get(calendarId="primary").execute()
+        return primary.get("id", "")
+    except Exception:
+        return ""
+
+
 def ensure_calendar(service, name: str, tz: str = DEFAULT_TZ) -> dict:
     """Return the calendar named `name` owned by the user, creating it if missing."""
     page = None

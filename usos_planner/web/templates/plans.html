@@ -3,7 +3,7 @@
 <div class="card">
   <h1>Plan zajęć</h1>
   <form class="inline" method="post" action="/upload" enctype="multipart/form-data">
-    <label>Plik .in albo zapisany plan z USOSweb (.html)<input type="file" name="file" required></label>
+    <label>Plik .in albo zapisany plan z USOSweb (.html) — albo <a href="/usos">pobierz z USOS</a><input type="file" name="file" required></label>
     <label>Preferencje (format prefs.in)<textarea name="prefs_text" style="min-height:90px;width:360px" placeholder="PtCzyWolne true&#10;PnGodziny 10:00-18:00&#10;Przypnij AnalizaIII CW 7">{% if state.source %}{% for d in range(5) %}{{ DAY_NAMES[d] }}Godziny {{ fmt_time(state.prefs.hours[d][0]) }}-{{ fmt_time(state.prefs.hours[d][1]) }}
 {% endfor %}{% for d in range(5) %}{{ DAY_NAMES[d] }}CzyWolne {{ 'true' if d in state.prefs.free_days else 'false' }}
 {% endfor %}{% endif %}</textarea></label>
@@ -26,8 +26,8 @@
     <button class="primary" type="submit" title="Tworzy w Twoim koncie Google kalendarz „{{ cfg.calendar.name }}” i wpisuje do niego zajęcia">Utwórz / odśwież kalendarz „{{ cfg.calendar.name }}”</button>
     <button type="button" onclick="var f=document.getElementById('calform');var w=f.which.value;location.href='/plans/'+w+'.ics?start='+f.start.value+'&end='+f.end.value">Pobierz .ics</button>
   </form>
-  <p class="muted">Przycisk Google wymaga pliku <code>{{ cfg.calendar.google_credentials_file }}</code> (klient OAuth „Desktop app” z Google Cloud Console; przy pierwszym użyciu otworzy się okno zgody).
-     Plik .ics zaimportujesz ręcznie: Google Calendar → Ustawienia → Import i eksport. Święta z <code>calendar.holidays</code> są pomijane.</p>
+  <p class="muted">Przycisk Google wymaga zalogowania przez Google (nagłówek; klucz aplikacji ustawia się raz w Ustawieniach).
+     Plik .ics zaimportujesz ręcznie: Google Calendar → Ustawienia → Import i eksport. Dni wolne z Ustawień są pomijane.</p>
 </div>
 {% endif %}
 

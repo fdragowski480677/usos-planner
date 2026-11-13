@@ -54,9 +54,11 @@ class UsosClient:
             self.token = json.loads(token_path.read_text())
 
     # ----- OAuth ----------------------------------------------------------
-    def begin_login(self) -> tuple[str, dict]:
-        """Returns (authorize_url, request_token). Show the URL, ask the user for the PIN."""
-        session = OAuth1Session(self.cfg.consumer_key, self.cfg.consumer_secret, callback_uri="oob")
+    def begin_login(self, callback_uri: str = "oob") -> tuple[str, dict]:
+        """Returns (authorize_url, request_token).  With "oob" the user gets a PIN to
+        paste; with a URL (the GUI's /auth/usos/callback) USOS redirects back with
+        oauth_verifier."""
+        session = OAuth1Session(self.cfg.consumer_key, self.cfg.consumer_secret, callback_uri=callback_uri)
         req = session.fetch_request_token(
             self.base + "services/oauth/request_token",
             params={"scopes": "|".join(self.cfg.scopes)},
@@ -81,6 +83,11 @@ class UsosClient:
     @property
     def logged_in(self) -> bool:
         return self.token is not None
+
+    def logout(self) -> None:
+        self.token = None
+        if self.token_path.exists():
+            self.token_path.unlink()
 
     def _session(self) -> OAuth1Session:
         if self.token:

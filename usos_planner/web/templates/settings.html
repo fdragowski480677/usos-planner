@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Ustawienia</h1>
+  {% if notice %}<p class="ok">{{ notice }}</p>{% endif %}{% if error %}<p class="err">{{ error }}</p>{% endif %}
+  <p class="muted">Zapisywane do <code>{{ cfg.path }}</code> (plik jest poza gitem). Klucze aplikacji trzeba uzyskać raz; logowanie jest potem przyciskiem w nagłówku.</p>
+</div>
+
+<div class="card">
+  <h2>USOS</h2>
+  <p class="muted">Zarejestruj aplikację na <a href="{{ cfg.usos.base_url }}developers/" target="_blank">{{ cfg.usos.base_url }}developers/</a> (jedna minuta, konto studenckie wystarcza) i wklej klucz oraz sekret. Status: {% if usos_user %}<b class="ok">zalogowano jako {{ usos_user }}</b>{% else %}<span class="err">niezalogowano</span>{% endif %}</p>
+  <form class="inline" method="post" action="/settings/usos">
+    <label>Adres instalacji USOS API<input name="base_url" value="{{ cfg.usos.base_url }}" style="width:300px"></label>
+    <label>Consumer key<input name="consumer_key" value="{{ cfg.usos.consumer_key }}" style="width:260px"></label>
+    <label>Consumer secret<input name="consumer_secret" type="password" value="{{ cfg.usos.consumer_secret }}" style="width:260px"></label>
+    <button class="primary" type="submit">Zapisz</button>
+    {% if cfg.usos.consumer_key %}<a href="/auth/usos"><button type="button">Zaloguj przez USOS</button></a>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <h2>Google Calendar</h2>
+  <p class="muted">W <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>: włącz „Google Calendar API”, utwórz klienta OAuth typu <b>Aplikacja komputerowa</b> (Desktop app), pobierz JSON i wklej jego treść poniżej. Status: {% if google_user %}<b class="ok">zalogowano jako {{ google_user }}</b>{% else %}<span class="err">niezalogowano</span>{% endif %}</p>
+  <form method="post" action="/settings/google">
+    <label>Treść pliku client_secret_*.json<textarea name="client_json" style="min-height:120px" placeholder='{"installed": {"client_id": "...", "client_secret": "...", ...}}'>{{ google_client_json }}</textarea></label>
+    <p><button class="primary" type="submit">Zapisz</button>
+       {% if google_configured %}<a href="/auth/google"><button type="button">Zaloguj przez Google</button></a>{% endif %}</p>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Semestr i kalendarz</h2>
+  <form class="inline" method="post" action="/settings/calendar">
+    <label>Nazwa kalendarza<input name="name" value="{{ cfg.calendar.name }}"></label>
+    <label>Pierwszy dzień zajęć<input type="date" name="term_start" value="{{ cfg.calendar.term_start }}"></label>
+    <label>Ostatni dzień zajęć<input type="date" name="term_end" value="{{ cfg.calendar.term_end }}"></label>
+    <label>Dni wolne (ISO, po przecinku)<input name="holidays" value="{{ cfg.calendar.holidays|join(', ') }}" style="width:320px"></label>
+    <button class="primary" type="submit">Zapisz</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Dane studenta (do pism)</h2>
+  <form class="inline" method="post" action="/settings/student">
+    {% for key, label in [('full_name','Imię i nazwisko'),('index_number','Nr albumu'),('programme','Kierunek i stopień'),('year','Rok'),('faculty','Wydział'),('email','E-mail'),('phone','Telefon'),('vice_dean_name','Prodziekan ds. studenckich'),('vice_dean_email','E-mail prodziekana'),('dean_office_email','E-mail dziekanatu')] %}
+    <label>{{ label }}<input name="{{ key }}" value="{{ cfg.student[key] }}"></label>
+    {% endfor %}
+    <button class="primary" type="submit">Zapisz</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Poczta (wysyłanie pism)</h2>
+  <form class="inline" method="post" action="/settings/mail">
+    <label>SMTP host<input name="smtp_host" value="{{ cfg.mail.smtp_host }}"></label>
+    <label>Port<input name="smtp_port" type="number" value="{{ cfg.mail.smtp_port }}" style="width:90px"></label>
+    <label>Login<input name="username" value="{{ cfg.mail.username }}"></label>
+    <label>Hasło aplikacji<input name="password" type="password" value="{{ cfg.mail.password }}"></label>
+    <label>Adres nadawcy<input name="from_address" value="{{ cfg.mail.from_address }}"></label>
+    <button class="primary" type="submit">Zapisz</button>
+  </form>
+  <p class="muted">Dla Gmaila/Google Workspace: hasło aplikacji z ustawień bezpieczeństwa konta, nie hasło główne.</p>
+</div>
+{% endblock %}
