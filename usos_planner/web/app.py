@@ -30,7 +30,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     app = FastAPI(title="usos-planner")
     store = CaseStore(cfg.data_dir / "cases.db")
     state: dict = {"catalog": None, "plans": [], "source": None, "prefs": Preferences(), "errors": [], "notice": "",
-                   "usos_request_token": None, "usos_user": "", "google_user": "", "google_flow_state": ""}
+                   "usos_request_token": None, "usos_user": "", "google_user": "", "google_flow": None, "google_flow_state": ""}
     app.state.cfg = cfg
     app.state.store = store
     app.state.planner = state
@@ -133,22 +133,27 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             state["errors"] = [str(e)]
             return RedirectResponse("/settings", status_code=303)
         url, flow_state = flow.authorization_url(access_type="offline", prompt="consent", include_granted_scopes="true")
+        # PKCE: the flow holds the code_verifier that must be sent back with the code,
+        # so the very same object has to finish the login in the callback.
+        state["google_flow"] = flow
         state["google_flow_state"] = flow_state
         return RedirectResponse(url, status_code=303)
 
     @app.get("/auth/google/callback", name="auth_google_callback")
-    def auth_google_callback(request: Request, code: str = "", state_param: str = "", error: str = ""):
-        from ..calendar.google_sync import GoogleCalendarError, web_flow
-
+    def auth_google_callback(request: Request, code: str = "", error: str = ""):
         if error or not code:
             state["errors"] = [f"Google: logowanie przerwane ({error or 'brak kodu'})."]
             return RedirectResponse("/settings", status_code=303)
+        flow = state.get("google_flow")
+        if flow is None or request.query_params.get("state") != state.get("google_flow_state"):
+            state["errors"] = ["Google: logowanie przerwane (sesja wygasła lub niezgodny parametr state). Spróbuj ponownie."]
+            return RedirectResponse("/settings", status_code=303)
         try:
-            flow = web_flow(Path(cfg.calendar.google_credentials_file), str(request.url_for("auth_google_callback")))
             flow.fetch_token(code=code)
-        except (GoogleCalendarError, Exception) as e:
+        except Exception as e:
             state["errors"] = [f"Google: logowanie nie powiodło się: {e}"]
             return RedirectResponse("/settings", status_code=303)
+        state["google_flow"] = None
         google_token.parent.mkdir(parents=True, exist_ok=True)
         google_token.write_text(flow.credentials.to_json())
         google_token.chmod(0o600)

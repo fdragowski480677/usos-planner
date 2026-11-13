@@ -115,3 +115,47 @@ def test_usos_login_callback_flow(tmp_path, monkeypatch):
     assert "USOS: Jan Kowalski" in r.text
     r = c.get("/auth/usos/logout", follow_redirects=True)
     assert "USOS: Jan Kowalski" not in r.text
+
+
+def test_google_callback_reuses_flow_with_code_verifier(tmp_path, monkeypatch):
+    import json
+    from urllib.parse import parse_qs, urlparse
+
+    monkeypatch.chdir(tmp_path)
+    c = make_client(tmp_path)
+    client = {"installed": {"client_id": "x.apps.googleusercontent.com", "client_secret": "y",
+                            "auth_uri": "https://accounts.google.com/o/oauth2/auth", "token_uri": "https://oauth2.googleapis.com/token",
+                            "redirect_uris": ["http://localhost"]}}
+    c.post("/settings/google", data={"client_json": json.dumps(client)})
+    r = c.get("/auth/google", follow_redirects=False)
+    q = parse_qs(urlparse(r.headers["location"]).query)
+    assert q["code_challenge_method"] == ["S256"]
+    flow_state = q["state"][0]
+
+    from google_auth_oauthlib import flow as flow_mod
+
+    seen = {}
+
+    def fake_fetch_token(self, **kw):
+        seen["code"] = kw["code"]
+        seen["verifier"] = self.code_verifier
+        from datetime import datetime, timedelta
+
+        from google.oauth2.credentials import Credentials
+
+        self._credentials = Credentials("A", refresh_token="R", token_uri="https://oauth2.googleapis.com/token",
+                                        client_id="x", client_secret="y", scopes=self.oauth2session.scope,
+                                        expiry=datetime.utcnow() + timedelta(hours=1))
+
+    monkeypatch.setattr(flow_mod.Flow, "fetch_token", fake_fetch_token)
+    monkeypatch.setattr(flow_mod.Flow, "credentials", property(lambda self: self._credentials))
+    monkeypatch.setattr("usos_planner.calendar.google_sync.account_email", lambda creds: "me@gmail.com")
+
+    # wrong state -> rejected, flow kept
+    r = c.get("/auth/google/callback?code=abc&state=wrong", follow_redirects=True)
+    assert "niezgodny parametr state" in r.text
+    r = c.get(f"/auth/google/callback?code=abc&state={flow_state}", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/"
+    assert seen["code"] == "abc" and seen["verifier"]  # the verifier from the login step was sent along
+    assert (tmp_path / "google_token.json").exists()
+    assert "Google: me@gmail.com" in c.get("/").text

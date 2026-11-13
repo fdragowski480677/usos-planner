@@ -65,7 +65,10 @@ def load_credentials(token_file: Path):
         return None
     creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
     if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except Exception:  # revoked or client changed: treat as logged out
+            return None
         token_file.write_text(creds.to_json())
     return creds if creds.valid else None
 
