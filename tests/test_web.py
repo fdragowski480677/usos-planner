@@ -139,13 +139,13 @@ def test_google_callback_reuses_flow_with_code_verifier(tmp_path, monkeypatch):
     def fake_fetch_token(self, **kw):
         seen["code"] = kw["code"]
         seen["verifier"] = self.code_verifier
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         from google.oauth2.credentials import Credentials
 
         self._credentials = Credentials("A", refresh_token="R", token_uri="https://oauth2.googleapis.com/token",
                                         client_id="x", client_secret="y", scopes=self.oauth2session.scope,
-                                        expiry=datetime.utcnow() + timedelta(hours=1))
+                                        expiry=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1))
 
     monkeypatch.setattr(flow_mod.Flow, "fetch_token", fake_fetch_token)
     monkeypatch.setattr(flow_mod.Flow, "credentials", property(lambda self: self._credentials))
@@ -176,3 +176,25 @@ def test_plan_count_is_selectable(tmp_path):
     assert "Plan 6 z 6" in r.text
     r = c.post("/replan", data={"prefs_text": "", "max_plans": "0"}, follow_redirects=True)
     assert "Plan 1 z 1" in r.text
+
+
+def test_gcal_reports_disabled_calendar_api(tmp_path, monkeypatch):
+    import httplib2
+    from googleapiclient.errors import HttpError
+
+    from usos_planner.calendar import google_sync
+
+    body = (b'{"error": {"code": 403, "message": "Google Calendar API has not been used in project 123 before or it is '
+            b'disabled. Enable it by visiting https://console.developers.google.com/... then retry.", "status": "PERMISSION_DENIED"}}')
+
+    class FakeService:
+        def calendarList(self):
+            raise HttpError(httplib2.Response({"status": 403}), body, uri="https://www.googleapis.com/calendar/v3/users/me/calendarList")
+
+    monkeypatch.setattr(google_sync, "load_credentials", lambda token_file: object())
+    monkeypatch.setattr(google_sync, "service_from_credentials", lambda creds: FakeService())
+    c = make_client(tmp_path)
+    c.post("/upload", files={"file": ("sample.in", (FIX / "sample.in").read_bytes())}, data={"prefs_text": ""})
+    r = c.post("/plans/0/gcal", data={"start": "2025-10-01", "end": "2026-01-30"}, follow_redirects=True)
+    assert r.status_code == 200
+    assert "Google Calendar API nie jest włączone" in r.text and "project=123" in r.text

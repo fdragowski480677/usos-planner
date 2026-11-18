@@ -12,6 +12,7 @@ re-sync removes only our events and leaves anything the user added by hand.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -24,6 +25,22 @@ MARKER = "usos_planner"
 
 class GoogleCalendarError(RuntimeError):
     pass
+
+
+def explain_api_error(exc: BaseException) -> str:
+    """Turn a googleapiclient/google-auth exception into one actionable sentence (Polish, for the GUI)."""
+    text = str(exc)
+    m = re.search(r"has not been used in project (\d+) before or it is disabled", text)
+    if m:
+        return ("Google Calendar API nie jest włączone w Twoim projekcie Google Cloud. Włącz je tutaj: "
+                f"https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project={m.group(1)} "
+                "i po chwili spróbuj ponownie.")
+    if "insufficient" in text.lower() and "scope" in text.lower():
+        return "Zalogowano bez uprawnień do kalendarza. Wyloguj się z Google i zaloguj ponownie, akceptując dostęp do Kalendarza."
+    if "invalid_grant" in text or "RefreshError" in type(exc).__name__:
+        return "Sesja Google wygasła lub została unieważniona. Wyloguj się z Google i zaloguj ponownie."
+    reason = re.search(r'returned "([^"]+)"', text)
+    return f"Google Calendar: {reason.group(1) if reason else text[:300]}"
 
 
 def get_service(credentials_file: Path, token_file: Path):

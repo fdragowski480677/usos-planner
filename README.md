@@ -95,6 +95,12 @@ list holidays under `calendar.holidays` so those weeks are skipped.
   CLI equivalent: `usos-planner gcal plan.in --prefs prefs.in` (opens a browser
   for consent on first use).
 
+**"Google Calendar API nie jest włączone"** after a successful login means the
+OAuth client works but the Calendar API is switched off in that Google Cloud
+project. Open *APIs & Services → Library → Google Calendar API → Enable* (the
+error message carries a direct link), wait a minute and press the button again.
+Logging in never needs the API, which is why the sign-in itself succeeds.
+
 ### Input format
 
 The `.in` format of the original project is kept, so existing files work:

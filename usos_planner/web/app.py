@@ -363,7 +363,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.post("/plans/{index}/gcal")
     def plan_gcal(index: int, start: str = Form(""), end: str = Form("")):
         from ..calendar.dates import TermDatesError, holidays
-        from ..calendar.google_sync import GoogleCalendarError, service_from_credentials, sync_plan
+        from ..calendar.google_sync import GoogleCalendarError, explain_api_error, service_from_credentials, sync_plan
 
         cat, plans = state["catalog"], state["plans"]
         if cat is None or not 0 <= index < len(plans):
@@ -378,6 +378,9 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                                tz=cfg.calendar.timezone, exdates=holidays(cfg.calendar))
         except (TermDatesError, GoogleCalendarError) as err:
             state["errors"] = [str(err)]
+            return RedirectResponse("/", status_code=303)
+        except Exception as err:  # HttpError (API disabled, quota), RefreshError, network: show it, do not 500
+            state["errors"] = [explain_api_error(err)]
             return RedirectResponse("/", status_code=303)
         state["errors"] = []
         state["notice"] = (f"Kalendarz Google „{result['calendar_name']}”: usunięto {result['removed']} starych, "
