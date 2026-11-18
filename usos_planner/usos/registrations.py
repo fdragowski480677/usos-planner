@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Thin wrappers over `services/registrations/*` and the timetable methods used to
 build a catalog.  Field lists follow the USOS API reference (registrations and tt
 modules); unknown fields are simply absent from the response."""

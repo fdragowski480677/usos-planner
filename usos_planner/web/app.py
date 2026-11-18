@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """FastAPI GUI: plans, registration attempts, escalation cases and e-mail drafting.
 
 Run with `usos-planner serve` and open http://127.0.0.1:8000.

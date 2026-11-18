@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """SMTP sender.  Uses STARTTLS and an app password from config.yaml.  A copy of
 every message is also written to `<data_dir>/sent/` as .eml for your records."""
 

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Core data model.
 
 A *catalog* is a flat structure: courses own units (one unit = one class type of a

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Build a Catalog straight from the USOS API (no HTML scraping).
 
 For each course edition we read `tt/course_edition`, which lists every class

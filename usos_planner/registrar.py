@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Executes a plan against an open registration round.
 
 Safety rules baked in:

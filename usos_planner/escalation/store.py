@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """SQLite store for registration attempts and escalation cases.
 
 Case lifecycle:

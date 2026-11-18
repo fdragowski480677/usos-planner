@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 from pathlib import Path
 
 from usos_planner.config import StudentConfig

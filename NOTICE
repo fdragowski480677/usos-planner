@@ -1,0 +1,64 @@
+usos-planner
+Copyright (c) 2026 Franciszek Drągowski
+Licensed under the MIT License (see LICENSE).
+
+This file credits the programs usos-planner is based on or uses. Their
+licenses apply to them, not to usos-planner itself.
+
+
+1. Based on CollegePlanner
+--------------------------
+
+usos-planner is a Python rewrite and extension of CollegePlanner by
+Jan Rutecki (GitHub: rutek6), https://github.com/rutek6/CollegePlanner,
+a C++ schedule planner with a Python helper for USOSweb timetables.
+
+No CollegePlanner source code is copied into this repository. What
+usos-planner takes from it:
+
+  * the `.in` timetable format (PRZEDMIOT / ZAJECIA / GRUPA) and the
+    `prefs.in` preference keys, kept compatible so existing files work
+    (usos_planner/inputs/text_format.py);
+  * the penalty model for schedules: hard and soft conflicts, time spent at
+    university, late ends and early starts (usos_planner/solver.py);
+  * the idea of reading groups from a saved USOSweb page, rewritten from
+    its parser.py (usos_planner/inputs/usosweb_html.py).
+
+At the time of writing the CollegePlanner repository has no license file.
+All credit for the original design belongs to its author.
+
+
+2. Third-party libraries
+------------------------
+
+Installed from PyPI as dependencies, not bundled in this repository.
+
+  Library                    License        Used for
+  -------------------------  -------------  ----------------------------------
+  OR-Tools (CP-SAT)          Apache-2.0     exact schedule solver
+  FastAPI                    MIT            web GUI
+  Uvicorn                    BSD-3-Clause   web server for the GUI
+  Jinja2                     BSD-3-Clause   HTML templates
+  python-multipart           Apache-2.0     file uploads in the GUI
+  requests-oauthlib          ISC            USOS API OAuth 1.0a
+  oauthlib                   BSD-3-Clause   USOS API OAuth 1.0a
+  Beautiful Soup 4           MIT            parsing saved USOSweb pages
+  PyYAML                     MIT            config.yaml
+  google-api-python-client   Apache-2.0     Google Calendar API (optional)
+  google-auth-oauthlib       Apache-2.0     Google sign-in (optional)
+  pytest                     MIT            tests (development only)
+  HTTPX                      BSD-3-Clause   tests (development only)
+
+
+3. External services
+--------------------
+
+usos-planner talks to services it does not own. Using them is subject to
+their own terms:
+
+  * the USOS API of your university (https://<usos-api>/developers/), run
+    by the university and the MUCI consortium;
+  * the Google Calendar API, under the Google APIs Terms of Service.
+
+USOS, USOSweb and Google Calendar are names of their respective owners;
+usos-planner is an independent project and is not endorsed by them.

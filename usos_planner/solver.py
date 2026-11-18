@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Schedule solver built on OR-Tools CP-SAT.
 
 Decision: one boolean per group, exactly one group chosen per unit.  Objective is a

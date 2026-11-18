@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Formal Polish messages: e-mail to the course coordinator and a petition
 (podanie) to the vice-dean for student affairs.  Both are plain text so the
 student can edit them in the GUI before sending."""

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Pairwise conflict classification between groups.
 
 Overlapping groups conflict.  If either group is a lecture the conflict is SOFT

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """The `.in` text format used by the original C++ CollegePlanner.
 
     PRZEDMIOT <name with spaces>

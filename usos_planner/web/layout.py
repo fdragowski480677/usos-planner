@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Place a plan's slots on the weekly grid: overlapping events share the width of
 their column instead of hiding each other, and every event knows how bad its
 overlap is (none / soft = a lecture is involved / hard)."""

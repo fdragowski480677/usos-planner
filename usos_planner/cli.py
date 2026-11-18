@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Command line interface.  `usos-planner --help`."""
 
 from __future__ import annotations

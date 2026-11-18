@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Parser for a saved USOSweb timetable page (the `<timetable-entry>` web components).
 
 Fixes relative to the original parser.py: no values leak between entries, the

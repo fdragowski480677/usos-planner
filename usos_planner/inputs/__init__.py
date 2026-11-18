@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Catalog sources: the legacy .in text format, saved USOSweb HTML, and the USOS API."""
 
 from pathlib import Path

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Create (or reuse) a dedicated Google Calendar in the user's account and fill it
 with the plan's recurring events.
 

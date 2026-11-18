@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Turn a plan into an iCalendar file with weekly recurring events.
 
 Each time slot of each chosen group becomes one VEVENT recurring every week from the

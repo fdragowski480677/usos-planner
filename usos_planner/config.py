@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Configuration: `config.yaml` in the project directory (or USOS_PLANNER_CONFIG)."""
 
 from __future__ import annotations

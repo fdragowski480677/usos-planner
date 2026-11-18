@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Resolve the semester date range: explicit arguments > config.yaml > USOS API `terms/term`."""
 
 from __future__ import annotations

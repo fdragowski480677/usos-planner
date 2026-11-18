@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Franciszek Drągowski
+
 """Minimal USOS API client (OAuth 1.0a, out-of-band PIN flow).
 
 Every USOS installation has its own base URL and consumer keys; register yours at

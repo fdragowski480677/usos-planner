@@ -140,3 +140,10 @@ usos_planner/
   the generic bucket and still open a case.
 * The HTML parser targets the `<timetable-entry>` web components of current
   USOSweb; older table-based pages are not supported.
+
+## License
+
+MIT, see [LICENSE](LICENSE). usos-planner is based on
+[CollegePlanner](https://github.com/rutek6/CollegePlanner) by Jan Rutecki: it keeps
+that project's `.in` format and penalty model. [NOTICE](NOTICE) lists what was
+taken from it, plus the third-party libraries and services the tool uses.
