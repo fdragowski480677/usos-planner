@@ -43,7 +43,8 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 pytest                               # 27 tests
 
-usos-planner plan tests/fixtures/sample.in            # best plans in the terminal
+usos-planner plan tests/fixtures/sample.in            # 5 best plans in the terminal
+usos-planner plan plan.in --max-plans 10              # anything from 1 to 10
 usos-planner plan plan.html --prefs prefs.in --json   # from a saved USOSweb page
 usos-planner serve                                    # GUI at http://127.0.0.1:8000
 ```
@@ -67,6 +68,8 @@ any third-party login. Everything is stored locally in `config.yaml` and
 
 After logging in, **Pobierz z USOS** lists your registration rounds; one click
 pulls all courses of a round with their groups and times and computes the plans.
+The **Liczba planów** selector (1–10) on the plan page says how many of the best
+alternatives to show; "Przelicz" re-solves with the current preferences and count.
 
 ### USOS API from the CLI
 

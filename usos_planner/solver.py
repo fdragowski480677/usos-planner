@@ -16,6 +16,12 @@ from .conflicts import Conflict, conflict_pairs
 from .models import Catalog, Plan, Preferences
 
 DAY_MINUTES = 24 * 60
+MAX_PLANS = 10  # the most alternatives the CLI and GUI will enumerate
+
+
+def clamp_plans(n: int) -> int:
+    """Number of plans to look for, kept between 1 and MAX_PLANS."""
+    return max(1, min(int(n), MAX_PLANS))
 
 
 @dataclass
@@ -46,6 +52,7 @@ def allowed_groups(cat: Catalog, prefs: Preferences) -> tuple[list[list[int]], l
 
 
 def solve(cat: Catalog, prefs: Preferences, max_plans: int = 5, time_limit_s: float = 10.0) -> SolveReport:
+    max_plans = clamp_plans(max_plans)
     allowed, infeasible, dropped = allowed_groups(cat, prefs)
     if infeasible or not cat.units:
         return SolveReport([], infeasible, dropped)

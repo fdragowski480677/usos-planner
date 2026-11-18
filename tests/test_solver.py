@@ -72,3 +72,10 @@ def test_empty_catalog():
     from usos_planner.models import Catalog
 
     assert solve(Catalog(), Preferences()).plans == []
+
+
+def test_max_plans_is_clamped_to_ten():
+    from usos_planner.solver import MAX_PLANS, clamp_plans
+
+    assert MAX_PLANS == 10
+    assert clamp_plans(0) == 1 and clamp_plans(7) == 7 and clamp_plans(50) == 10

@@ -159,3 +159,20 @@ def test_google_callback_reuses_flow_with_code_verifier(tmp_path, monkeypatch):
     assert seen["code"] == "abc" and seen["verifier"]  # the verifier from the login step was sent along
     assert (tmp_path / "google_token.json").exists()
     assert "Google: me@gmail.com" in c.get("/").text
+
+
+def test_plan_count_is_selectable(tmp_path):
+    c = make_client(tmp_path)
+    files = {"file": ("sample.in", (FIX / "sample.in").read_bytes())}
+    r = c.post("/upload", files=files, data={"prefs_text": "", "max_plans": "1"}, follow_redirects=True)
+    assert "Plan 1 z 1" in r.text and "Plan 2" not in r.text
+    assert '<option value="1" selected>' in r.text
+    # the sample has 2 x 3 = 6 combinations, so asking for 10 yields all six
+    r = c.post("/replan", data={"prefs_text": "", "max_plans": "10"}, follow_redirects=True)
+    assert "Plan 6 z 6" in r.text and "Plan 7" not in r.text
+    assert c.get("/plans/5.json").status_code == 200
+    # out-of-range values are clamped, never rejected
+    r = c.post("/replan", data={"prefs_text": "", "max_plans": "99"}, follow_redirects=True)
+    assert "Plan 6 z 6" in r.text
+    r = c.post("/replan", data={"prefs_text": "", "max_plans": "0"}, follow_redirects=True)
+    assert "Plan 1 z 1" in r.text

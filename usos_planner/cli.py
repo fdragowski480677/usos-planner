@@ -12,13 +12,20 @@ from .config import Config
 from .inputs import load_catalog
 from .inputs.text_format import InputError, read_prefs, write_catalog
 from .models import Preferences
-from .solver import solve
+from .solver import MAX_PLANS, solve
 
 
 def _client(cfg: Config):
     from .usos.client import UsosClient
 
     return UsosClient(cfg.usos, cfg.data_dir / "usos_token.json")
+
+
+def _plans_count(value: str) -> int:
+    n = int(value)
+    if not 1 <= n <= MAX_PLANS:
+        raise argparse.ArgumentTypeError(f"must be between 1 and {MAX_PLANS}")
+    return n
 
 
 def cmd_plan(args, cfg):
@@ -136,7 +143,7 @@ def _plan_from_args(args, cfg):
     cat = load_catalog(args.source)
     _restore_meta(cat, Path(args.source))
     prefs = read_prefs(Path(args.prefs).read_text(encoding="utf-8"), cat) if args.prefs else Preferences()
-    report = solve(cat, prefs, max_plans=max(1, args.plan))
+    report = solve(cat, prefs, max_plans=args.plan)
     if len(report.plans) < args.plan:
         print(f"only {len(report.plans)} plan(s) available", file=sys.stderr)
         sys.exit(2)
@@ -218,7 +225,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("plan", help="compute best schedules from a .in or USOSweb .html file")
     p.add_argument("source")
     p.add_argument("--prefs")
-    p.add_argument("--max-plans", type=int, default=5)
+    p.add_argument("--max-plans", type=_plans_count, default=5, help=f"how many best plans to list, 1-{MAX_PLANS} (default 5)")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_plan)
 
@@ -251,7 +258,7 @@ def main(argv=None) -> int:
         p = sub.add_parser(name, help=help_text)
         p.add_argument("source")
         p.add_argument("--prefs")
-        p.add_argument("--plan", type=int, default=1, help="which of the best plans (1 = best)")
+        p.add_argument("--plan", type=_plans_count, default=1, help=f"which of the best plans, 1-{MAX_PLANS} (1 = best)")
         p.add_argument("--start", help="first day of classes, ISO date")
         p.add_argument("--end", help="last day of classes, ISO date")
         if name == "export-ics":

@@ -20,7 +20,7 @@ from ..escalation.templates import CaseContext, coordinator_email, dean_petition
 from ..inputs import load_catalog
 from ..inputs.text_format import InputError, read_prefs
 from ..models import DAY_NAMES, Preferences, fmt_time
-from ..solver import solve
+from ..solver import MAX_PLANS, clamp_plans, solve
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -29,7 +29,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     cfg = cfg or Config.load()
     app = FastAPI(title="usos-planner")
     store = CaseStore(cfg.data_dir / "cases.db")
-    state: dict = {"catalog": None, "plans": [], "source": None, "prefs": Preferences(), "errors": [], "notice": "",
+    state: dict = {"catalog": None, "plans": [], "source": None, "prefs": Preferences(), "errors": [], "notice": "", "max_plans": 5,
                    "usos_request_token": None, "usos_user": "", "google_user": "", "google_flow": None, "google_flow_state": ""}
     app.state.cfg = cfg
     app.state.store = store
@@ -74,11 +74,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     def render(request: Request, name: str, **ctx) -> HTMLResponse:
         auth = {"usos_user": state["usos_user"], "google_user": state["google_user"]}
-        return TEMPLATES.TemplateResponse(request, name, {"cfg": cfg, "fmt_time": fmt_time, "DAY_NAMES": DAY_NAMES, "auth": auth, **ctx})
+        return TEMPLATES.TemplateResponse(request, name, {"cfg": cfg, "fmt_time": fmt_time, "DAY_NAMES": DAY_NAMES, "auth": auth, "MAX_PLANS": MAX_PLANS, **ctx})
 
     def set_catalog(cat, prefs: Preferences, source: str) -> None:
         state.update(catalog=cat, source=source, prefs=prefs, errors=[])
-        report = solve(cat, prefs, max_plans=5)
+        report = solve(cat, prefs, max_plans=state["max_plans"])
         state["plans"] = report.plans
         if report.infeasible_units:
             state["errors"] = ["Brak planu: zajęcia bez żadnej dozwolonej grupy: " + ", ".join(
@@ -250,10 +250,12 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                 rounds = Registrations(usos_client()).search_rounds(start.isoformat(), (start + timedelta(days=30)).isoformat())
             except UsosError as e:
                 error = f"USOS: {e.user_message}"
-        return render(request, "usos.html", usos_user=state["usos_user"], rounds=rounds, error=error)
+        return render(request, "usos.html", state=state, usos_user=state["usos_user"], rounds=rounds, error=error)
 
     @app.post("/usos/fetch")
-    def usos_fetch(round_id: str = Form(""), courses: str = Form(""), term_id: str = Form("")):
+    def usos_fetch(round_id: str = Form(""), courses: str = Form(""), term_id: str = Form(""), max_plans: int = Form(0)):
+        if max_plans:
+            state["max_plans"] = clamp_plans(max_plans)
         from ..inputs.text_format import write_catalog
         from ..inputs.usos_api import catalog_from_api
         from ..usos.client import UsosError
@@ -297,7 +299,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return render(request, "plans.html", state=state, cat=state["catalog"], plans=state["plans"])
 
     @app.post("/upload")
-    async def upload(file: UploadFile, prefs_text: str = Form("")):
+    async def upload(file: UploadFile, prefs_text: str = Form(""), max_plans: int = Form(5)):
+        state["max_plans"] = clamp_plans(max_plans)
         uploads = cfg.data_dir / "uploads"
         uploads.mkdir(parents=True, exist_ok=True)
         dest = uploads / Path(file.filename or "plan.in").name
@@ -313,7 +316,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return RedirectResponse("/", status_code=303)
 
     @app.post("/replan")
-    def replan(prefs_text: str = Form("")):
+    def replan(prefs_text: str = Form(""), max_plans: int = Form(5)):
+        state["max_plans"] = clamp_plans(max_plans)
         cat = state["catalog"]
         if cat is None:
             return RedirectResponse("/", status_code=303)
@@ -324,7 +328,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return RedirectResponse("/", status_code=303)
         state["prefs"] = prefs
         state["errors"] = []
-        state["plans"] = solve(cat, prefs, max_plans=5).plans
+        state["plans"] = solve(cat, prefs, max_plans=state["max_plans"]).plans
         return RedirectResponse("/", status_code=303)
 
     @app.get("/plans/{index}.json")

@@ -18,6 +18,7 @@
   <form class="inline" method="post" action="/usos/fetch">
     <label>Kody przedmiotów (po przecinku)<input name="courses" style="width:420px" placeholder="1000-211bAM1, 1000-212bBD"></label>
     <label>Cykl<input name="term_id" placeholder="2025Z" style="width:90px"></label>
+    <label>Liczba planów (1–{{ MAX_PLANS }})<select name="max_plans">{% for n in range(1, MAX_PLANS + 1) %}<option value="{{ n }}"{% if n == state.max_plans %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
     <button class="primary" type="submit">Pobierz i zaplanuj</button>
   </form>
   {% endif %}

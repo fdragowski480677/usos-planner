@@ -7,11 +7,12 @@
     <label>Preferencje (format prefs.in)<textarea name="prefs_text" style="min-height:90px;width:360px" placeholder="PtCzyWolne true&#10;PnGodziny 10:00-18:00&#10;Przypnij AnalizaIII CW 7">{% if state.source %}{% for d in range(5) %}{{ DAY_NAMES[d] }}Godziny {{ fmt_time(state.prefs.hours[d][0]) }}-{{ fmt_time(state.prefs.hours[d][1]) }}
 {% endfor %}{% for d in range(5) %}{{ DAY_NAMES[d] }}CzyWolne {{ 'true' if d in state.prefs.free_days else 'false' }}
 {% endfor %}{% endif %}</textarea></label>
+    <label>Liczba planów (1–{{ MAX_PLANS }})<select name="max_plans">{% for n in range(1, MAX_PLANS + 1) %}<option value="{{ n }}"{% if n == state.max_plans %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
     <button class="primary" type="submit">Wczytaj i zaplanuj</button>
   </form>
   {% if state.source %}
   <p class="muted">Źródło: {{ state.source }} · {{ cat.courses|length }} przedmiotów, {{ cat.units|length }} rodzajów zajęć, {{ cat.groups|length }} grup.
-     Zmiana preferencji bez ponownego wczytywania: <form method="post" action="/replan" style="display:inline"><input type="hidden" name="prefs_text" id="prefs_copy"><button type="submit" onclick="document.getElementById('prefs_copy').value=document.querySelector('textarea[name=prefs_text]').value">Przelicz</button></form></p>
+     Zmiana preferencji bez ponownego wczytywania: <form method="post" action="/replan" style="display:inline"><input type="hidden" name="prefs_text" id="prefs_copy"><input type="hidden" name="max_plans" id="max_plans_copy"><button type="submit" onclick="document.getElementById('prefs_copy').value=document.querySelector('textarea[name=prefs_text]').value;document.getElementById('max_plans_copy').value=document.querySelector('select[name=max_plans]').value">Przelicz</button></form></p>
   {% endif %}
   {% for e in state.errors %}<p class="err">{{ e }}</p>{% endfor %}
   {% if state.notice %}<p class="ok">{{ state.notice }}</p>{% endif %}
@@ -31,9 +32,10 @@
 </div>
 {% endif %}
 
+{% if state.source and plans %}<p class="muted">Pokazano {{ plans|length }} z {{ state.max_plans }} żądanych planów, od najlepszego{% if plans|length < state.max_plans %} (więcej kombinacji nie ma){% endif %}.</p>{% endif %}
 {% for plan in plans %}
 <div class="card">
-  <h2>Plan {{ loop.index }} · kara {{ plan.penalty }} ·
+  <h2>Plan {{ loop.index }} z {{ plans|length }} · kara {{ plan.penalty }} ·
     <span class="{{ 'err' if plan.hard_conflicts else 'ok' }}">{{ plan.hard_conflicts }} twardych konfliktów</span>,
     <span class="soft">{{ plan.soft_conflicts }} miękkich</span>
     · <a href="/plans/{{ loop.index0 }}.json">JSON</a></h2>
