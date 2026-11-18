@@ -21,6 +21,7 @@ from ..inputs import load_catalog
 from ..inputs.text_format import InputError, read_prefs
 from ..models import DAY_NAMES, Preferences, fmt_time
 from ..solver import MAX_PLANS, clamp_plans, solve
+from .layout import layout_plan
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -74,7 +75,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     def render(request: Request, name: str, **ctx) -> HTMLResponse:
         auth = {"usos_user": state["usos_user"], "google_user": state["google_user"]}
-        return TEMPLATES.TemplateResponse(request, name, {"cfg": cfg, "fmt_time": fmt_time, "DAY_NAMES": DAY_NAMES, "auth": auth, "MAX_PLANS": MAX_PLANS, **ctx})
+        return TEMPLATES.TemplateResponse(request, name, {"cfg": cfg, "fmt_time": fmt_time, "DAY_NAMES": DAY_NAMES, "auth": auth, "MAX_PLANS": MAX_PLANS, "layout_plan": layout_plan, **ctx})
 
     def set_catalog(cat, prefs: Preferences, source: str) -> None:
         state.update(catalog=cat, source=source, prefs=prefs, errors=[])

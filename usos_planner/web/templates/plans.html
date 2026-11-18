@@ -39,17 +39,16 @@
     <span class="{{ 'err' if plan.hard_conflicts else 'ok' }}">{{ plan.hard_conflicts }} twardych konfliktów</span>,
     <span class="soft">{{ plan.soft_conflicts }} miękkich</span>
     · <a href="/plans/{{ loop.index0 }}.json">JSON</a></h2>
-  {% set slots = plan.slots(cat) %}
+  {% set days = layout_plan(cat, plan) %}
   <div class="grid">
     <div></div>{% for d in range(5) %}<div class="day">{{ DAY_NAMES[d] }}</div>{% endfor %}
     <div class="hours">{% for h in range(8, 21) %}<span style="top:{{ (h-8)*60 }}px">{{ '%02d:00' % h }}</span>{% endfor %}</div>
     {% for d in range(5) %}
     <div class="col">
-      {% for gid, s in slots if s.day == d %}
+      {% for p in days.get(d, []) %}{% set gid, s = p.gid, p.slot %}
       {% set top = (s.start - 8*60) %}{% set height = s.end - s.start %}
-      {% set clash = namespace(v=false) %}
-      {% for gid2, s2 in slots if gid2 != gid and s2.day == d and s2.start < s.end and s.start < s2.end %}{% set clash.v = true %}{% endfor %}
-      <div class="block {{ 'conflict' if clash.v else '' }}" style="top:{{ top }}px;height:{{ height - 2 }}px" title="{{ cat.describe_group(gid) }} {{ s }}">
+      <div class="block {{ p.severity }}" style="top:{{ top }}px;height:{{ height - 2 }}px;left:calc({{ p.left_pct }}% + 2px);width:calc({{ p.width_pct }}% - 4px)"
+           title="{{ cat.describe_group(gid) }} {{ s }}{% if p.severity == 'hard' %} — twardy konflikt{% elif p.severity == 'soft' %} — miękki konflikt (wykład){% endif %}">
         <b>{{ cat.course_of_group(gid).name }}</b><br>{{ cat.unit_of_group(gid).class_type.value }} gr. {{ cat.groups[gid].number }} · {{ fmt_time(s.start) }}–{{ fmt_time(s.end) }}
       </div>
       {% endfor %}

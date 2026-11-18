@@ -198,3 +198,34 @@ def test_gcal_reports_disabled_calendar_api(tmp_path, monkeypatch):
     r = c.post("/plans/0/gcal", data={"start": "2025-10-01", "end": "2026-01-30"}, follow_redirects=True)
     assert r.status_code == 200
     assert "Google Calendar API nie jest włączone" in r.text and "project=123" in r.text
+
+
+def test_layout_places_overlaps_side_by_side_with_severity():
+    from usos_planner.inputs import load_catalog
+    from usos_planner.models import Plan
+    from usos_planner.web.layout import layout_plan
+
+    cat = load_catalog(FIX / "sample.in")
+    # groups in file order: 0 WYK g1 (Pn 10:15-12), 1 CW g1 (Pn 8-10), 2 CW g2, 3 LAB g1 (Pn 8-10), 4 LAB g2, 5 LAB g3 (Pn 10:15-12)
+    soft = layout_plan(cat, Plan(chosen=[0, 1, 5], penalty=0))
+    monday = soft[0]
+    cw = next(p for p in monday if p.gid == 1)
+    assert (cw.col, cw.cols, cw.severity) == (0, 1, "")  # alone at 8:00, full width
+    lecture, lab = (next(p for p in monday if p.gid == g) for g in (0, 5))
+    assert {lecture.col, lab.col} == {0, 1} and lecture.cols == lab.cols == 2
+    assert lecture.severity == lab.severity == "soft"
+    assert lab.width_pct == 50.0 and {lecture.left_pct, lab.left_pct} == {0.0, 50.0}
+
+    hard = layout_plan(cat, Plan(chosen=[0, 1, 3], penalty=0))
+    assert {p.severity for p in hard[0] if p.gid in (1, 3)} == {"hard"}
+    assert {p.severity for p in hard[0] if p.gid == 0} == {""}
+
+
+def test_plan_page_marks_soft_conflicts_yellow_not_red(tmp_path):
+    c = make_client(tmp_path)
+    # pin the colliding lecture-time lab so a soft conflict is on the page
+    r = c.post("/upload", files={"file": ("sample.in", (FIX / "sample.in").read_bytes())},
+               data={"prefs_text": "Przypnij BazyDanych LAB 3", "max_plans": "1"}, follow_redirects=True)
+    assert r.status_code == 200
+    assert 'class="block soft"' in r.text and 'class="block hard"' not in r.text
+    assert "width:calc(50.0% - 4px)" in r.text
