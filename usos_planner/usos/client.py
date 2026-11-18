@@ -16,7 +16,7 @@ from typing import Any
 import requests
 from requests_oauthlib import OAuth1Session
 
-from ..config import UsosConfig
+from ..config import UsosConfig, write_private
 
 
 class UsosError(RuntimeError):
@@ -51,6 +51,8 @@ class UsosClient:
             raise UsosError(0, "consumer key/secret missing in config.yaml (usos section)")
         self.cfg = cfg
         self.base = cfg.base_url.rstrip("/") + "/"
+        if not self.base.startswith("https://"):
+            raise UsosError(0, "USOS API address must start with https:// (OAuth keys would travel unencrypted)")
         self.token_path = token_path
         self.token: dict[str, str] | None = None
         if token_path.exists():
@@ -79,9 +81,7 @@ class UsosClient:
         )
         access = session.fetch_access_token(self.base + "services/oauth/access_token")
         self.token = {"oauth_token": access["oauth_token"], "oauth_token_secret": access["oauth_token_secret"]}
-        self.token_path.parent.mkdir(parents=True, exist_ok=True)
-        self.token_path.write_text(json.dumps(self.token))
-        self.token_path.chmod(0o600)
+        write_private(self.token_path, json.dumps(self.token))
 
     @property
     def logged_in(self) -> bool:

@@ -11,10 +11,14 @@ from usos_planner.web.app import create_app
 FIX = Path(__file__).parent / "fixtures"
 
 
-def make_client(tmp_path):
-    cfg = Config()
+BASE = "http://127.0.0.1:8000"
+
+
+def make_client(tmp_path, cfg=None):
+    cfg = cfg or Config()
     cfg.data_dir = tmp_path
-    return TestClient(create_app(cfg))
+    cfg.path = tmp_path / "config.yaml"
+    return TestClient(create_app(cfg), base_url=BASE)
 
 
 def test_upload_and_plan(tmp_path):
@@ -37,10 +41,10 @@ def test_case_flow(tmp_path):
     r = c.post(case_url + "/draft", data={"kind": "coordinator", "recipient": "", "coordinator_name": "dr Anna Nowak",
                                           "justification": ""}, follow_redirects=True)
     assert "a@x.pl" in r.text and "Szanowna Pani Doktor" in r.text
-    # sending without SMTP credentials must fail gracefully, not crash
+    # sending without a Google login (default: Gmail) must fail gracefully, not crash
     msg_id = r.url.path.rsplit("/", 1)[1]
     r = c.post(f"/messages/{msg_id}/send", data={"recipient": "a@x.pl", "subject": "s", "body": "b"}, follow_redirects=True)
-    assert "missing" in r.text
+    assert "wymaga zalogowania przez Google" in r.text
     assert c.get("/cases").status_code == 200
 
 
@@ -79,7 +83,8 @@ def test_settings_save_and_login_buttons(tmp_path, monkeypatch):
     assert "Zapisano klienta Google" in r.text
     r = c.get("/auth/google", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("https://accounts.google.com/o/oauth2/auth")
-    assert "redirect_uri=http%3A%2F%2Ftestserver%2Fauth%2Fgoogle%2Fcallback" in r.headers["location"]
+    assert "redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Fauth%2Fgoogle%2Fcallback" in r.headers["location"]
+    assert "include_granted_scopes" not in r.headers["location"] and "calendar.app.created" in r.headers["location"]
     # student + calendar settings
     r = c.post("/settings/student", data={"full_name": "Jan Kowalski", "index_number": "1"}, follow_redirects=True)
     assert "Zapisano dane studenta" in r.text
@@ -191,8 +196,8 @@ def test_gcal_reports_disabled_calendar_api(tmp_path, monkeypatch):
             b'disabled. Enable it by visiting https://console.developers.google.com/... then retry.", "status": "PERMISSION_DENIED"}}')
 
     class FakeService:
-        def calendarList(self):
-            raise HttpError(httplib2.Response({"status": 403}), body, uri="https://www.googleapis.com/calendar/v3/users/me/calendarList")
+        def calendars(self):
+            raise HttpError(httplib2.Response({"status": 403}), body, uri="https://www.googleapis.com/calendar/v3/calendars")
 
     monkeypatch.setattr(google_sync, "load_credentials", lambda token_file: object())
     monkeypatch.setattr(google_sync, "service_from_credentials", lambda creds: FakeService())

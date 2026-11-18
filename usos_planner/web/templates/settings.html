@@ -4,7 +4,10 @@
 <div class="card">
   <h1>Ustawienia</h1>
   {% if notice %}<p class="ok">{{ notice }}</p>{% endif %}{% if error %}<p class="err">{{ error }}</p>{% endif %}
-  <p class="muted">Zapisywane do <code>{{ cfg.path }}</code> (plik jest poza gitem). Klucze aplikacji trzeba uzyskać raz; logowanie jest potem przyciskiem w nagłówku.</p>
+  <p class="muted">Zapisywane do <code>{{ cfg.path }}</code>, w folderze dostępnym tylko dla Ciebie. Klucze aplikacji trzeba uzyskać raz; logowanie jest potem przyciskiem w nagłówku.
+     Zapisane sekrety nigdy nie są pokazywane na tej stronie: puste pole oznacza „bez zmian”.</p>
+  {% if insecure_paths %}<p class="err">Uwaga: pliki z sekretami leżą na dysku Windows ({{ insecure_paths|join(', ') }}), gdzie nie da się ograniczyć dostępu do nich.
+     Przenieś je do <code>~/.config/usos-planner</code> i <code>~/.local/share/usos-planner</code> (README, sekcja „Security”).</p>{% endif %}
 </div>
 
 <div class="card">
@@ -13,17 +16,19 @@
   <form class="inline" method="post" action="/settings/usos">
     <label>Adres instalacji USOS API<input name="base_url" value="{{ cfg.usos.base_url }}" style="width:300px"></label>
     <label>Consumer key<input name="consumer_key" value="{{ cfg.usos.consumer_key }}" style="width:260px"></label>
-    <label>Consumer secret<input name="consumer_secret" type="password" value="{{ cfg.usos.consumer_secret }}" style="width:260px"></label>
+    <label>Consumer secret<input name="consumer_secret" type="password" value="" autocomplete="off" placeholder="{{ 'zapisany (puste = bez zmian)' if cfg.usos.consumer_secret else '' }}" style="width:260px"></label>
     <button class="primary" type="submit">Zapisz</button>
     {% if cfg.usos.consumer_key %}<a href="/auth/usos"><button type="button">Zaloguj przez USOS</button></a>{% endif %}
   </form>
 </div>
 
 <div class="card">
-  <h2>Google Calendar</h2>
-  <p class="muted">W <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>: włącz „Google Calendar API”, utwórz klienta OAuth typu <b>Aplikacja komputerowa</b> (Desktop app), pobierz JSON i wklej jego treść poniżej. Status: {% if google_user %}<b class="ok">zalogowano jako {{ google_user }}</b>{% else %}<span class="err">niezalogowano</span>{% endif %}</p>
+  <h2>Google (kalendarz i poczta)</h2>
+  <p class="muted">W <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>: włącz „Google Calendar API” i „Gmail API”, utwórz klienta OAuth typu <b>Aplikacja komputerowa</b> (Desktop app), pobierz JSON i wklej jego treść poniżej. Status: {% if google_user %}<b class="ok">zalogowano jako {{ google_user }}</b>{% else %}<span class="err">niezalogowano</span>{% endif %}</p>
+  <p class="muted">Aplikacja prosi tylko o: dostęp do kalendarzy, które sama utworzy (nie do Twoich pozostałych), wysyłanie poczty w Twoim imieniu (bez czytania skrzynki) i Twój adres e-mail.</p>
+  {% if google_client_id %}<p class="muted">Zapisany klient: <code>{{ google_client_id }}</code>. Wklej nowy JSON tylko po to, żeby go zastąpić.</p>{% endif %}
   <form method="post" action="/settings/google">
-    <label>Treść pliku client_secret_*.json<textarea name="client_json" style="min-height:120px" placeholder='{"installed": {"client_id": "...", "client_secret": "...", ...}}'>{{ google_client_json }}</textarea></label>
+    <label>Treść pliku client_secret_*.json<textarea name="client_json" style="min-height:120px" autocomplete="off" placeholder='{"installed": {"client_id": "...", "client_secret": "...", ...}}'></textarea></label>
     <p><button class="primary" type="submit">Zapisz</button>
        {% if google_configured %}<a href="/auth/google"><button type="button">Zaloguj przez Google</button></a>{% endif %}</p>
   </form>
@@ -53,13 +58,19 @@
 <div class="card">
   <h2>Poczta (wysyłanie pism)</h2>
   <form class="inline" method="post" action="/settings/mail">
+    <label>Sposób wysyłki<select name="method">
+      <option value="gmail"{% if cfg.mail.method == 'gmail' %} selected{% endif %}>Gmail przez logowanie Google (bez hasła)</option>
+      <option value="smtp"{% if cfg.mail.method == 'smtp' %} selected{% endif %}>Serwer SMTP z hasłem aplikacji</option>
+    </select></label>
+    <label>Adres nadawcy<input name="from_address" value="{{ cfg.mail.from_address }}" placeholder="puste = konto Google"></label>
     <label>SMTP host<input name="smtp_host" value="{{ cfg.mail.smtp_host }}"></label>
     <label>Port<input name="smtp_port" type="number" value="{{ cfg.mail.smtp_port }}" style="width:90px"></label>
-    <label>Login<input name="username" value="{{ cfg.mail.username }}"></label>
-    <label>Hasło aplikacji<input name="password" type="password" value="{{ cfg.mail.password }}"></label>
-    <label>Adres nadawcy<input name="from_address" value="{{ cfg.mail.from_address }}"></label>
+    <label>Login SMTP<input name="username" value="{{ cfg.mail.username }}"></label>
+    <label>Hasło aplikacji SMTP<input name="password" type="password" value="" autocomplete="off" placeholder="{{ 'zapisane (puste = bez zmian)' if cfg.mail.password else '' }}"></label>
+    {% if cfg.mail.password %}<label><span><input type="checkbox" name="clear_password" value="1"> usuń zapisane hasło</span></label>{% endif %}
     <button class="primary" type="submit">Zapisz</button>
   </form>
-  <p class="muted">Dla Gmaila/Google Workspace: hasło aplikacji z ustawień bezpieczeństwa konta, nie hasło główne.</p>
+  <p class="muted"><b>Gmail</b> (zalecane): wysyła z konta, którym logujesz się przez Google; żadne hasło nie jest zapisywane. Adres nadawcy musi być tym kontem albo jego aliasem.
+     <b>SMTP</b>: tylko hasło aplikacji, nigdy hasło główne. Połączenie sprawdza certyfikat serwera.</p>
 </div>
 {% endblock %}

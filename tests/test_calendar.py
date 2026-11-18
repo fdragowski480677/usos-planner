@@ -68,6 +68,13 @@ def test_resolve_term_dates():
     assert resolve_term_dates(CalendarConfig(), cat, client=FakeClient()) == (date(2025, 10, 1), date(2026, 1, 25))
 
 
+def _http_error(status):
+    import httplib2
+    from googleapiclient.errors import HttpError
+
+    return HttpError(httplib2.Response({"status": status}), b'{"error": {"message": "x"}}', uri="https://www.googleapis.com/calendar/v3")
+
+
 class FakeService:
     """Minimal stand-in for googleapiclient's chained resource objects."""
 
@@ -84,12 +91,29 @@ class FakeService:
         return type("L", (), {"list": lambda _s, **kw: self._Exec(lambda: {"items": list(self.cals)})})()
 
     def calendars(self):
-        def insert(_s, body):
-            cal = {"id": f"cal{len(self.cals)}", "summary": body["summary"]}
-            self.cals.append(cal)
-            return self._Exec(lambda: cal)
+        svc = self
 
-        return type("C", (), {"insert": insert})()
+        def insert(_s, body):
+            cal = {"id": f"cal{len(svc.cals)}", "summary": body["summary"]}
+            svc.cals.append(cal)
+            return svc._Exec(lambda: cal)
+
+        def get(_s, calendarId):
+            def run():
+                for c in svc.cals:
+                    if c["id"] == calendarId:
+                        return c
+                raise _http_error(404)
+            return svc._Exec(run)
+
+        def patch(_s, calendarId, body):
+            def run():
+                cal = next(c for c in svc.cals if c["id"] == calendarId)
+                cal.update(body)
+                return cal
+            return svc._Exec(run)
+
+        return type("C", (), {"insert": insert, "get": get, "patch": patch})()
 
     def events(self):
         svc = self
@@ -114,21 +138,23 @@ class FakeService:
         return E()
 
 
-def test_google_sync_is_idempotent_and_keeps_manual_events():
+def test_google_sync_is_idempotent_and_keeps_manual_events(tmp_path):
     svc = FakeService()
+    store = tmp_path / "google_calendar.json"
     cat, plan = best_plan()
-    cal = ensure_calendar(svc, "Plan zajęć")
-    assert cal["summary"] == "Plan zajęć" and ensure_calendar(svc, "Plan zajęć")["id"] == cal["id"]
+    cal = ensure_calendar(svc, "Plan zajęć", store)
+    assert cal["summary"] == "Plan zajęć" and ensure_calendar(svc, "Plan zajęć", store)["id"] == cal["id"]
+    assert store.stat().st_mode & 0o777 == 0o600
     svc.events_by_cal[cal["id"]] = [{"id": "manual", "extendedProperties": {"private": {}}}]
 
-    r1 = sync_plan(svc, cat, plan, date(2025, 10, 1), date(2026, 1, 30))
+    r1 = sync_plan(svc, cat, plan, date(2025, 10, 1), date(2026, 1, 30), calendar_store=store)
     assert r1["inserted"] == 3 and r1["removed"] == 0
     body = svc.inserted[0]
     assert body["recurrence"][0].startswith("RRULE:FREQ=WEEKLY;BYDAY=")
     assert body["start"]["timeZone"] == "Europe/Warsaw"
     assert body["extendedProperties"]["private"]["usos_planner"] == "1"
 
-    r2 = sync_plan(svc, cat, plan, date(2025, 10, 1), date(2026, 1, 30))
+    r2 = sync_plan(svc, cat, plan, date(2025, 10, 1), date(2026, 1, 30), calendar_store=store)
     assert r2["removed"] == 3 and r2["inserted"] == 3
     ids = {e["id"] for e in svc.events_by_cal[cal["id"]]}
     assert "manual" in ids and len(ids) == 4

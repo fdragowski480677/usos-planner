@@ -12,8 +12,8 @@
     </div>
     <label>Temat<input name="subject" value="{{ msg.subject }}" style="width:100%"></label>
     <label style="margin-top:8px">Treść (edytuj przed wysłaniem; usuń niepotrzebne formy mogłem/mogłam)<textarea name="body">{{ msg.body }}</textarea></label>
-    <p><button class="primary" type="submit" onclick="return confirm('Wysłać tę wiadomość przez SMTP z konta {{ cfg.mail.from_address or cfg.mail.username }}?')">Wyślij</button>
-       <span class="muted">Kopia trafi do data/sent/ jako .eml{% if cfg.mail.bcc_self %} i na Twoją skrzynkę{% endif %}.</span></p>
+    <p><button class="primary" type="submit" onclick="return confirm('Wysłać tę wiadomość {{ 'przez Gmail' if cfg.mail.method == 'gmail' else 'przez SMTP' }} z konta {{ cfg.mail.from_address or (cfg.mail.username if cfg.mail.method == 'smtp' else 'Google') }}?')">Wyślij</button>
+       <span class="muted">Kopia trafi do folderu sent/ w danych aplikacji jako .eml{% if cfg.mail.method == 'gmail' %} i do „Wysłanych” w Gmailu{% elif cfg.mail.bcc_self %} i na Twoją skrzynkę{% endif %}.</span></p>
   </form>
 </div>
 {% endblock %}

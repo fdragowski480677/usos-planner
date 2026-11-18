@@ -1,5 +1,6 @@
-# Copy to config.yaml (git-ignored) and fill in.  Nothing here is optional for
-# the feature that uses it; the planner alone needs none of it.
+# Copy to ~/.config/usos-planner/config.yaml (mode 600) and fill in, or let the
+# GUI's Ustawienia page write it for you.  Nothing here is optional for the
+# feature that uses it; the planner alone needs none of it.
 
 usos:
   # Your university's USOS API installation (list: https://apps.usos.edu.pl/developers/api/definitions/installations/)
@@ -10,11 +11,13 @@ usos:
   scopes: [studies, offline_access, email]
 
 mail:
+  method: gmail         # gmail = Gmail API through the Google login, no password stored; smtp = below
+  from_address: ""      # empty = the Google account; otherwise that account or one of its aliases
+  # SMTP only:
   smtp_host: smtp.gmail.com
-  smtp_port: 587
-  username: ""          # your university mailbox login
+  smtp_port: 587        # 587 STARTTLS or 465 TLS; the certificate is verified
+  username: ""
   password: ""          # an app password, never your real password
-  from_address: ""      # e.g. j.kowalski@student.uw.edu.pl
   bcc_self: true
 
 student:
@@ -35,7 +38,9 @@ calendar:
   term_start: ""                # first day of classes, e.g. 2025-10-01 (USOS `terms/term` fills it if empty)
   term_end: ""                  # last day of classes, e.g. 2026-01-30
   holidays: []                  # e.g. ["2025-11-01", "2025-11-11", "2025-12-23"]
-  # Google Cloud Console -> enable "Google Calendar API" -> OAuth client "Desktop app" -> download JSON:
+  # Google Cloud Console -> enable "Google Calendar API" and "Gmail API" -> OAuth client
+  # "Desktop app" -> download JSON.  A relative path is next to this config.yaml:
   google_credentials_file: google_credentials.json
 
-data_dir: data
+# login tokens, case database, uploads (default ~/.local/share/usos-planner):
+# data_dir: /home/you/.local/share/usos-planner

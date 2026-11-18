@@ -11,12 +11,13 @@ from __future__ import annotations
 import json
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.parse import quote, urlsplit
 
 from fastapi import FastAPI, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from ..config import Config
+from ..config import Config, write_private
 from ..escalation import mailer
 from ..escalation.store import STATUSES, CaseStore
 from ..escalation.templates import CaseContext, coordinator_email, dean_petition
@@ -28,10 +29,60 @@ from .layout import layout_plan
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
+DEFAULT_ALLOWED_HOSTS = ("127.0.0.1", "localhost")
 
-def create_app(cfg: Config | None = None) -> FastAPI:
+
+class LocalOnlyMiddleware:
+    """Keeps other websites open in the same browser away from the GUI.
+
+    The GUI has no password: it trusts whoever can reach it, which should be only you.
+    Two browser tricks would otherwise let any web page you visit use it:
+
+    * DNS rebinding - a page re-points its own domain to 127.0.0.1 and then reads our
+      pages as if they were its own.  The browser still sends that domain in the Host
+      header, so anything but the allowed host names is refused.
+    * Cross-site requests - a page submits a hidden form to 127.0.0.1:8000 (send an
+      e-mail, change settings).  For such requests browsers always say where they come
+      from (Sec-Fetch-Site and/or Origin), so state-changing requests from another
+      site are refused.  Requests without those headers (curl, tests) do not come
+      from a web page and pass.
+    """
+
+    STATE_CHANGING_GETS = ("/auth/usos/logout", "/auth/google/logout")
+
+    def __init__(self, app, allowed_hosts=DEFAULT_ALLOWED_HOSTS):
+        self.app = app
+        self.allowed = {h.lower() for h in allowed_hosts}
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
+        host = headers.get("host", "").lower()
+        hostname = host.split("]")[0] + "]" if host.startswith("[") else host.rsplit(":", 1)[0]
+        if hostname not in self.allowed:
+            return await self._deny(send, 400, "Nieprawidłowy nagłówek Host: otwórz GUI pod adresem http://127.0.0.1:<port>/")
+        if scope["method"] not in ("GET", "HEAD", "OPTIONS") or scope["path"] in self.STATE_CHANGING_GETS:
+            site = headers.get("sec-fetch-site")
+            origin = headers.get("origin")
+            if site is not None and site not in ("same-origin", "none"):
+                return await self._deny(send, 403, "Żądanie z innej strony zostało zablokowane.")
+            if origin is not None and (origin == "null" or urlsplit(origin).netloc.lower() != host):
+                return await self._deny(send, 403, "Żądanie z innej strony zostało zablokowane.")
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _deny(send, status: int, text: str):
+        body = text.encode("utf-8")
+        await send({"type": "http.response.start", "status": status,
+                    "headers": [(b"content-type", b"text/plain; charset=utf-8"), (b"content-length", str(len(body)).encode())]})
+        await send({"type": "http.response.body", "body": body})
+
+
+def create_app(cfg: Config | None = None, allowed_hosts=DEFAULT_ALLOWED_HOSTS) -> FastAPI:
     cfg = cfg or Config.load()
     app = FastAPI(title="usos-planner")
+    app.add_middleware(LocalOnlyMiddleware, allowed_hosts=allowed_hosts)
     store = CaseStore(cfg.data_dir / "cases.db")
     state: dict = {"catalog": None, "plans": [], "source": None, "prefs": Preferences(), "errors": [], "notice": "", "max_plans": 5,
                    "usos_request_token": None, "usos_user": "", "google_user": "", "google_flow": None, "google_flow_state": ""}
@@ -39,6 +90,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     app.state.store = store
     app.state.planner = state
     google_token = cfg.data_dir / "google_token.json"
+    google_calendar_store = cfg.data_dir / "google_calendar.json"
 
     # ----- auth helpers ---------------------------------------------------
     def usos_client():
@@ -73,6 +125,17 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         state["google_user"] = account_email(creds) or ("zalogowano" if creds else "") if creds else ""
         return state["google_user"]
 
+    def migrate_google_token() -> None:
+        from ..calendar.google_sync import migrate_legacy_token
+
+        try:
+            if migrate_legacy_token(google_token, google_calendar_store, cfg.calendar.name):
+                state["notice"] = ("Uprawnienia Google zostały zawężone: stary token z pełnym dostępem do kalendarza "
+                                   "unieważniono. Zaloguj się przez Google ponownie.")
+        except Exception:
+            pass
+
+    migrate_google_token()
     refresh_usos_user()
     refresh_google_user()
 
@@ -132,11 +195,12 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         from ..calendar.google_sync import GoogleCalendarError, web_flow
 
         try:
-            flow = web_flow(Path(cfg.calendar.google_credentials_file), str(request.url_for("auth_google_callback")))
+            flow = web_flow(cfg.google_client_path(), str(request.url_for("auth_google_callback")))
         except GoogleCalendarError as e:
             state["errors"] = [str(e)]
             return RedirectResponse("/settings", status_code=303)
-        url, flow_state = flow.authorization_url(access_type="offline", prompt="consent", include_granted_scopes="true")
+        # no include_granted_scopes: the token must carry only the narrow permissions asked for now
+        url, flow_state = flow.authorization_url(access_type="offline", prompt="consent")
         # PKCE: the flow holds the code_verifier that must be sent back with the code,
         # so the very same object has to finish the login in the callback.
         state["google_flow"] = flow
@@ -158,15 +222,20 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             state["errors"] = [f"Google: logowanie nie powiodło się: {e}"]
             return RedirectResponse("/settings", status_code=303)
         state["google_flow"] = None
-        google_token.parent.mkdir(parents=True, exist_ok=True)
-        google_token.write_text(flow.credentials.to_json())
-        google_token.chmod(0o600)
+        write_private(google_token, flow.credentials.to_json())
         refresh_google_user()
         return RedirectResponse("/", status_code=303)
 
     @app.get("/auth/google/logout")
     def auth_google_logout():
+        from ..calendar.google_sync import revoke_token
+
         if google_token.exists():
+            try:
+                data = json.loads(google_token.read_text(encoding="utf-8"))
+                revoke_token(data.get("refresh_token") or data.get("token") or "")  # invalidate at Google too
+            except (OSError, ValueError):
+                pass
             google_token.unlink()
         state["google_user"] = ""
         return RedirectResponse("/settings", status_code=303)
@@ -174,19 +243,31 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     # ----- settings --------------------------------------------------------
     @app.get("/settings", response_class=HTMLResponse)
     def settings(request: Request):
-        cred = Path(cfg.calendar.google_credentials_file)
-        client_json = cred.read_text(encoding="utf-8") if cred.exists() else ""
+        cred = cfg.google_client_path()
+        client_id = ""
+        if cred.exists():  # show which client is saved, never its secret
+            try:
+                data = json.loads(cred.read_text(encoding="utf-8"))
+                client_id = (data.get("installed") or data.get("web") or {}).get("client_id", "")
+            except (OSError, ValueError):
+                client_id = "(nieczytelny plik)"
         errors, state["errors"] = state["errors"], []
         notice, state["notice"] = state["notice"], ""
         return render(request, "settings.html", usos_user=state["usos_user"], google_user=state["google_user"],
-                      google_client_json=client_json, google_configured=cred.exists(),
+                      google_client_id=client_id, google_configured=cred.exists(),
+                      insecure_paths=[str(p) for p in cfg.insecure_paths()],
                       error="; ".join(errors) if errors else "", notice=notice)
 
     @app.post("/settings/usos")
     def settings_usos(base_url: str = Form(...), consumer_key: str = Form(""), consumer_secret: str = Form("")):
         base_url = base_url.strip()
+        if not base_url.startswith("https://"):
+            state["errors"] = ["USOS: adres API musi zaczynać się od https://"]
+            return RedirectResponse("/settings", status_code=303)
         cfg.usos.base_url = base_url if base_url.endswith("/") else base_url + "/"
-        cfg.usos.consumer_key, cfg.usos.consumer_secret = consumer_key.strip(), consumer_secret.strip()
+        cfg.usos.consumer_key = consumer_key.strip()
+        if consumer_secret.strip():  # empty field = keep the saved secret (it is never sent back to the page)
+            cfg.usos.consumer_secret = consumer_secret.strip()
         cfg.save()
         state["notice"] = "Zapisano ustawienia USOS."
         return RedirectResponse("/settings", status_code=303)
@@ -202,12 +283,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             except ValueError as e:
                 state["errors"] = [f"Google: niepoprawny JSON klienta: {e}"]
                 return RedirectResponse("/settings", status_code=303)
-            dest = Path(cfg.calendar.google_credentials_file)
-            dest.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            try:
-                dest.chmod(0o600)
-            except OSError:
-                pass
+            write_private(cfg.google_client_path(), json.dumps(data, indent=2))
             state["notice"] = "Zapisano klienta Google. Możesz się zalogować."
         return RedirectResponse("/settings", status_code=303)
 
@@ -231,9 +307,18 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return RedirectResponse("/settings", status_code=303)
 
     @app.post("/settings/mail")
-    def settings_mail(smtp_host: str = Form(""), smtp_port: int = Form(587), username: str = Form(""), password: str = Form(""), from_address: str = Form("")):
-        cfg.mail.smtp_host, cfg.mail.smtp_port = smtp_host.strip(), smtp_port
-        cfg.mail.username, cfg.mail.password, cfg.mail.from_address = username.strip(), password, from_address.strip()
+    def settings_mail(method: str = Form("gmail"), smtp_host: str = Form(""), smtp_port: int = Form(587), username: str = Form(""),
+                      password: str = Form(""), from_address: str = Form(""), clear_password: str = Form("")):
+        if method not in ("gmail", "smtp"):
+            state["errors"] = ["Poczta: nieznany sposób wysyłki."]
+            return RedirectResponse("/settings", status_code=303)
+        cfg.mail.method = method
+        cfg.mail.smtp_host, cfg.mail.smtp_port = smtp_host.strip() or cfg.mail.smtp_host, smtp_port
+        cfg.mail.username, cfg.mail.from_address = username.strip(), from_address.strip()
+        if clear_password:
+            cfg.mail.password = ""
+        elif password:  # empty field = keep the saved password (it is never sent back to the page)
+            cfg.mail.password = password
         cfg.save()
         state["notice"] = "Zapisano ustawienia poczty."
         return RedirectResponse("/settings", status_code=303)
@@ -378,7 +463,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             if creds is None:
                 raise GoogleCalendarError("Najpierw zaloguj się przez Google (przycisk w nagłówku).")
             service = service_from_credentials(creds)
-            result = sync_plan(service, cat, plans[index], s, e, calendar_name=cfg.calendar.name,
+            result = sync_plan(service, cat, plans[index], s, e, calendar_store=google_calendar_store, calendar_name=cfg.calendar.name,
                                tz=cfg.calendar.timezone, exdates=holidays(cfg.calendar))
         except (TermDatesError, GoogleCalendarError) as err:
             state["errors"] = [str(err)]
@@ -453,9 +538,9 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         store.update_message(message_id, recipient, subject, body)
         try:
             mailer.send(cfg.mail, recipient, subject, body, cc=[c.strip() for c in cc.split(",") if c.strip()],
-                        archive_dir=cfg.data_dir / "sent")
+                        archive_dir=cfg.data_dir / "sent", google_creds=google_creds() if cfg.mail.method == "gmail" else None)
         except mailer.MailError as e:
-            return RedirectResponse(f"/messages/{message_id}?error={e}", status_code=303)
+            return RedirectResponse(f"/messages/{message_id}?error={quote(str(e))}", status_code=303)
         store.mark_sent(message_id)
         store.set_status(msg["case_id"], "coordinator_sent" if msg["kind"] == "coordinator" else "dean_sent")
         return RedirectResponse(f"/cases/{msg['case_id']}", status_code=303)

@@ -200,8 +200,10 @@ def cmd_gcal(args, cfg):
     cat, plan = _plan_from_args(args, cfg)
     start, end = _term_dates(args, cfg, cat)
     try:
-        service = get_service(Path(cfg.calendar.google_credentials_file), cfg.data_dir / "google_token.json")
-        result = sync_plan(service, cat, plan, start, end, calendar_name=args.calendar or cfg.calendar.name,
+        store = cfg.data_dir / "google_calendar.json"
+        name = args.calendar or cfg.calendar.name
+        service = get_service(cfg.google_client_path(), cfg.data_dir / "google_token.json", store, name)
+        result = sync_plan(service, cat, plan, start, end, calendar_store=store, calendar_name=name,
                            tz=cfg.calendar.timezone, exdates=holidays(cfg.calendar))
     except GoogleCalendarError as e:
         print(str(e), file=sys.stderr)
@@ -214,9 +216,18 @@ def cmd_gcal(args, cfg):
 def cmd_serve(args, cfg):
     import uvicorn
 
-    from .web.app import create_app
+    from .web.app import DEFAULT_ALLOWED_HOSTS, create_app
 
-    uvicorn.run(create_app(cfg), host=args.host, port=args.port)
+    for p in cfg.insecure_paths():
+        print(f"warning: {p} is on a Windows drive, where access to secrets cannot be restricted; "
+              "move it under ~/.config/usos-planner or ~/.local/share/usos-planner (see README, Security)", file=sys.stderr)
+    allowed = set(DEFAULT_ALLOWED_HOSTS) | set(args.allow_host or [])
+    if args.host not in ("127.0.0.1", "localhost", "::1"):
+        print(f"warning: --host {args.host} makes the GUI reachable from other computers, and it has no password",
+              file=sys.stderr)
+        if args.host not in ("0.0.0.0", "::"):
+            allowed.add(args.host)
+    uvicorn.run(create_app(cfg, allowed_hosts=allowed), host=args.host, port=args.port)
     return 0
 
 
@@ -273,6 +284,8 @@ def main(argv=None) -> int:
     p = sub.add_parser("serve", help="start the web GUI")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--allow-host", action="append", metavar="NAME",
+                   help="extra host name the GUI answers to (default: 127.0.0.1 and localhost only)")
     p.set_defaults(fn=cmd_serve)
 
     args = ap.parse_args(argv)
